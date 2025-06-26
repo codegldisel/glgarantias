@@ -256,6 +256,51 @@ app.get("/api/ordens-servico", async (req, res) => {
   }
 });
 
+// Rotas para defeitos padronizados
+app.get("/api/grupos-defeito", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("grupos_defeito").select("*");
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Erro ao buscar grupos de defeito:", error.message);
+    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+  }
+});
+
+app.get("/api/subgrupos-defeito", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("subgrupos_defeito").select("*");
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Erro ao buscar subgrupos de defeito:", error.message);
+    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+  }
+});
+
+app.get("/api/subsubgrupos-defeito", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("subsubgrupos_defeito").select("*");
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Erro ao buscar subsubgrupos de defeito:", error.message);
+    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+  }
+});
+
+app.get("/api/mapeamento-defeitos", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("mapeamento_defeitos").select("*");
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("Erro ao buscar mapeamento de defeitos:", error.message);
+    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+  }
+});
+
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
