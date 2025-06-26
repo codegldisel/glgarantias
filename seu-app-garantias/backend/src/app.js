@@ -288,16 +288,12 @@ app.post("/api/defeitos-nao-mapeados", async (req, res) => {
     const inserts = uniqueDefeitos.map(descricao => ({ descricao }));
     const { error } = await supabase.from("defeitos_nao_mapeados").upsert(inserts, { onConflict: "descricao" });
     if (error) throw error;
-    res.status(200).json({ message: "Defeitos não mapeados salvos com sucesso!", count: inserts.length });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Iniciar o servidor
+    res.status(200).json({ message: "Defeitos não mapeados salvos com sucesso!", coun// Iniciar o servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});// Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
-
 
 

@@ -13,7 +13,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    allowedHosts: 'all'
+    allowedHosts: ['5173-i3s2tifylj88dyhyg9j0c-a72292d1.manusvm.computer', 'localhost', '127.0.0.1']
   }
 })
 

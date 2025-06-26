@@ -1,5 +1,5 @@
 // Configuração da API para conectar com o backend
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://3000-i3s2tifylj88dyhyg9j0c-a72292d1.manusvm.computer';
 
 class ApiService {
   async request(endpoint, options = {}) {
