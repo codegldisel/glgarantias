@@ -62,7 +62,7 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
     }
 
     // Verifica extensão do arquivo
-    if (!req.file.originalname.endsWith('.xlsx')) {
+    if (!req.file.originalname.endsWith(".xlsx")) {
       fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: "Apenas arquivos .xlsx são permitidos." });
     }
@@ -84,13 +84,13 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
 
     // Lógica para filtrar OS de garantia e inserir em temp_import_access
     const garantiaOS = data.filter(row => {
-      const tipoOS = row["TIPO_OS"] || row["NORDEN_OSV"] || "";
+      const tipoOS = row["TIPO_OS"] || row["NORDEM_OSV"] || "";
       const observacoes = row["OBSERVACOES"] || "";
       const defeito = row["DEFEITO"] || "";
       const isGarantia =
-        (typeof tipoOS === 'string' && (tipoOS.includes("G") || tipoOS.includes("GO") || tipoOS.includes("GU"))) ||
-        (typeof observacoes === 'string' && observacoes.toLowerCase().includes("garantia")) ||
-        (typeof defeito === 'string' && defeito.toLowerCase().includes("garantia"));
+        (typeof tipoOS === "string" && (tipoOS.includes("G") || tipoOS.includes("GO") || tipoOS.includes("GU"))) ||
+        (typeof observacoes === "string" && observacoes.toLowerCase().includes("garantia")) ||
+        (typeof defeito === "string" && defeito.toLowerCase().includes("garantia"));
       return isGarantia;
     });
 
@@ -128,6 +128,92 @@ app.get("/temp-import-access", async (req, res) => {
   } catch (error) {
     console.error("Erro ao buscar dados temporários:", error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Nova rota para processar dados da temp_import_access e mover para ordens_servico
+app.post("/process-data", async (req, res) => {
+  try {
+    // 1. Ler dados da temp_import_access
+    const { data: tempData, error: tempError } = await supabase
+      .from("temp_import_access")
+      .select("*");
+
+    if (tempError) throw tempError;
+
+    const processedData = [];
+    const unmappedDefects = new Set();
+
+    // Buscar todos os mapeamentos de defeitos uma vez para otimizar
+    const { data: mappingData, error: mappingError } = await supabase
+      .from("mapeamento_defeitos")
+      .select("descricao_original, grupo_id, subgrupo_id, subsubgrupo_id");
+
+    if (mappingError) throw mappingError;
+
+    const defectMap = new Map();
+    mappingData.forEach(m => defectMap.set(m.descricao_original.toLowerCase(), m));
+
+    for (const row of tempData) {
+      let grupo_defeito_id = null;
+      let subgrupo_defeito_id = null;
+      let subsubgrupo_defeito_id = null;
+
+      const originalDefect = row["DEFEITO"] ? String(row["DEFEITO"]).toLowerCase() : null;
+
+      if (originalDefect && defectMap.has(originalDefect)) {
+        const mapped = defectMap.get(originalDefect);
+        grupo_defeito_id = mapped.grupo_id;
+        subgrupo_defeito_id = mapped.subgrupo_id;
+        subsubgrupo_defeito_id = mapped.subsubgrupo_defeito_id;
+      } else if (originalDefect) {
+        unmappedDefects.add(originalDefect);
+      }
+
+      // Preparar dados para inserção em ordens_servico
+      processedData.push({
+        data_os: row["DATA_OS"] || null,
+        numero_os: row["NUMERO_OS"] || row["NORDEM_OSV"] || null,
+        fabricante: row["FABRICANTE"] || null,
+        motor: row["MOTOR"] || null,
+        modelo: row["MODELO"] || null,
+        observacoes: row["OBSERVACOES"] || null,
+        defeito: row["DEFEITO"] || null,
+        mecanico_montador: row["MECANICO_MONTADOR"] || null,
+        cliente: row["CLIENTE"] || null,
+        total_pecas: row["TOTAL_PECAS"] || 0,
+        total_servicos: row["TOTAL_SERVICOS"] || 0,
+        total_geral: row["TOTAL_GERAL"] || 0,
+        tipo_os: row["TIPO_OS"] || row["NORDEM_OSV"] || null, // Usar a lógica de filtragem anterior
+        grupo_defeito_id: grupo_defeito_id,
+        subgrupo_defeito_id: subgrupo_defeito_id,
+        subsubgrupo_defeito_id: subsubgrupo_defeito_id,
+      });
+    }
+
+    // 2. Inserir/atualizar dados na tabela ordens_servico
+    const { error: insertError } = await supabase
+      .from("ordens_servico")
+      .insert(processedData);
+
+    if (insertError) throw insertError;
+
+    // 3. Limpar temp_import_access após o processamento
+    const { error: deleteError } = await supabase
+      .from("temp_import_access")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000"); // Deleta tudo, exceto um ID fictício para evitar erro de delete sem where
+
+    if (deleteError) console.error("Erro ao limpar temp_import_access:", deleteError.message);
+
+    res.status(200).json({
+      message: "Dados processados e movidos para ordens_servico com sucesso!",
+      count: processedData.length,
+      unmappedDefects: Array.from(unmappedDefects),
+    });
+  } catch (error) {
+    console.error("Erro no processamento de dados:", error.message);
+    res.status(500).json({ error: error.message || "Erro interno do servidor." });
   }
 });
 
