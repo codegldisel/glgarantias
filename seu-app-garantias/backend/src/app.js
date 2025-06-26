@@ -205,99 +205,92 @@ app.post("/process-data", async (req, res) => {
   }
 });
 
-// Nova rota para buscar Ordens de Serviço com filtros e paginação
+// 1. Buscar ordens de serviço com filtros e paginação
 app.get("/api/ordens-servico", async (req, res) => {
   try {
-    let query = supabase.from("ordens_servico").select("*");
-
-    // Implementar filtros
-    const { tipo_os, fabricante, mecanico_montador, data_inicio, data_fim, defeito_keyword } = req.query;
-
-    if (tipo_os) {
-      query = query.eq("tipo_os", tipo_os);
-    }
-    if (fabricante) {
-      query = query.ilike("fabricante", `%${fabricante}%`);
-    }
-    if (mecanico_montador) {
-      query = query.ilike("mecanico_montador", `%${mecanico_montador}%`);
-    }
-    if (data_inicio) {
-      query = query.gte("data_os", data_inicio);
-    }
-    if (data_fim) {
-      query = query.lte("data_os", data_fim);
-    }
-    if (defeito_keyword) {
-      query = query.ilike("defeito", `%${defeito_keyword}%`);
-    }
-
-    // Implementar paginação
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit - 1;
-
-    query = query.range(startIndex, endIndex);
-
-    const { data, error, count } = await query.order("data_os", { ascending: false }); // Ordena por data mais recente
-
+    const { tipo_os, mecanico, cliente, data_inicio, data_fim, limit = 20, offset = 0 } = req.query;
+    let query = supabase.from("ordens_servico").select("*", { count: "exact" });
+    if (tipo_os) query = query.ilike("tipo_os", `%${tipo_os}%`);
+    if (mecanico) query = query.ilike("mecanico_montador", `%${mecanico}%`);
+    if (cliente) query = query.ilike("cliente", `%${cliente}%`);
+    if (data_inicio) query = query.gte("data_os", data_inicio);
+    if (data_fim) query = query.lte("data_os", data_fim);
+    query = query.range(Number(offset), Number(offset) + Number(limit) - 1);
+    const { data, error, count } = await query;
     if (error) throw error;
-
-    res.status(200).json({
-      page,
-      limit,
-      total: count, // Supabase retorna o count se select("*, count") for usado
-      data,
-    });
+    res.status(200).json({ data, count });
   } catch (error) {
-    console.error("Erro ao buscar ordens de serviço:", error.message);
-    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Rotas para defeitos padronizados
+// 2. Buscar grupos de defeito
 app.get("/api/grupos-defeito", async (req, res) => {
   try {
     const { data, error } = await supabase.from("grupos_defeito").select("*");
     if (error) throw error;
     res.status(200).json(data);
   } catch (error) {
-    console.error("Erro ao buscar grupos de defeito:", error.message);
-    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+    res.status(500).json({ error: error.message });
   }
 });
 
+// 3. Buscar subgrupos de defeito
 app.get("/api/subgrupos-defeito", async (req, res) => {
   try {
-    const { data, error } = await supabase.from("subgrupos_defeito").select("*");
+    const { grupo_id } = req.query;
+    let query = supabase.from("subgrupos_defeito").select("*");
+    if (grupo_id) query = query.eq("grupo_id", grupo_id);
+    const { data, error } = await query;
     if (error) throw error;
     res.status(200).json(data);
   } catch (error) {
-    console.error("Erro ao buscar subgrupos de defeito:", error.message);
-    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+    res.status(500).json({ error: error.message });
   }
 });
 
+// 4. Buscar subsubgrupos de defeito
 app.get("/api/subsubgrupos-defeito", async (req, res) => {
   try {
-    const { data, error } = await supabase.from("subsubgrupos_defeito").select("*");
+    const { subgrupo_id } = req.query;
+    let query = supabase.from("subsubgrupos_defeito").select("*");
+    if (subgrupo_id) query = query.eq("subgrupo_id", subgrupo_id);
+    const { data, error } = await query;
     if (error) throw error;
     res.status(200).json(data);
   } catch (error) {
-    console.error("Erro ao buscar subsubgrupos de defeito:", error.message);
-    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+    res.status(500).json({ error: error.message });
   }
 });
 
+// 5. Buscar mapeamento de defeitos
 app.get("/api/mapeamento-defeitos", async (req, res) => {
   try {
     const { data, error } = await supabase.from("mapeamento_defeitos").select("*");
     if (error) throw error;
     res.status(200).json(data);
   } catch (error) {
-    console.error("Erro ao buscar mapeamento de defeitos:", error.message);
-    res.status(500).json({ error: error.message || "Erro interno do servidor." });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. Salvar defeitos não mapeados em uma tabela específica
+// (Assume que existe tabela defeitos_nao_mapeados com campo descricao)
+app.post("/api/defeitos-nao-mapeados", async (req, res) => {
+  try {
+    const { defeitos } = req.body;
+    if (!Array.isArray(defeitos) || defeitos.length === 0) {
+      return res.status(400).json({ error: "Envie um array de defeitos não mapeados." });
+    }
+    // Remove duplicados
+    const uniqueDefeitos = [...new Set(defeitos.map(d => String(d).toLowerCase().trim()))];
+    // Insere defeitos não mapeados
+    const inserts = uniqueDefeitos.map(descricao => ({ descricao }));
+    const { error } = await supabase.from("defeitos_nao_mapeados").upsert(inserts, { onConflict: "descricao" });
+    if (error) throw error;
+    res.status(200).json({ message: "Defeitos não mapeados salvos com sucesso!", count: inserts.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
