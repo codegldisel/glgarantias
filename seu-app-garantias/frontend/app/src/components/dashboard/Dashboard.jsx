@@ -85,24 +85,6 @@ const Dashboard = () => {
     )
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">Erro ao carregar dados</h3>
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <button 
-            onClick={loadDashboardData}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Tentar novamente
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   const currentMonth = new Date().toLocaleDateString('pt-BR', { 
     month: 'long', 
     year: 'numeric' 
@@ -124,6 +106,25 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Error Alert (se houver erro) */}
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <div>
+              <h4 className="font-semibold text-destructive">Erro de conexão</h4>
+              <p className="text-sm text-muted-foreground">{error}</p>
+              <button 
+                onClick={loadDashboardData}
+                className="mt-2 px-3 py-1 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
@@ -131,6 +132,7 @@ const Dashboard = () => {
           value={metrics.totalOS}
           icon={FileText}
           description="Ordens de serviço do mês"
+          hasError={!!error}
         />
         
         <MetricCard
@@ -138,6 +140,7 @@ const Dashboard = () => {
           value={`R$ ${metrics.totalPecas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={DollarSign}
           description="Valor total em peças"
+          hasError={!!error}
         />
         
         <MetricCard
@@ -145,6 +148,7 @@ const Dashboard = () => {
           value={`R$ ${metrics.totalServicos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={TrendingUp}
           description="Valor total em serviços"
+          hasError={!!error}
         />
         
         <MetricCard
@@ -152,6 +156,7 @@ const Dashboard = () => {
           value={`R$ ${metrics.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={DollarSign}
           description="Valor total das OS"
+          hasError={!!error}
         />
         
         <MetricCard
@@ -159,6 +164,7 @@ const Dashboard = () => {
           value={metrics.mecanicos}
           icon={Users}
           description="Mecânicos trabalhando"
+          hasError={!!error}
         />
         
         <MetricCard
@@ -166,6 +172,7 @@ const Dashboard = () => {
           value={metrics.defeitosComuns}
           icon={AlertTriangle}
           description="Defeitos identificados"
+          hasError={!!error}
         />
       </div>
 
