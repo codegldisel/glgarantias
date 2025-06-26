@@ -8,6 +8,7 @@ import {
   Calendar
 } from 'lucide-react'
 import MetricCard from './MetricCard'
+import OSTable from './OSTable'
 import ApiService from '../../services/api'
 
 const Dashboard = () => {
@@ -177,6 +178,9 @@ const Dashboard = () => {
           </span>
         </div>
       </div>
+
+      {/* Tabela de Ordens de Serviço */}
+      <OSTable />
     </div>
   )
 }
