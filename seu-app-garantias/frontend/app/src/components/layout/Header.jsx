@@ -1,6 +1,8 @@
 import { Search, Bell, User } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 const Header = () => {
+  const { t } = useTranslation()
   const currentMonth = new Date().toLocaleDateString('pt-BR', { 
     month: 'long', 
     year: 'numeric' 
@@ -11,9 +13,9 @@ const Header = () => {
       <div className="flex items-center justify-between">
         {/* Title */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard de Garantias</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('Dashboard de Garantias')}</h1>
           <p className="text-muted-foreground">
-            Análise de ordens de serviço - {currentMonth}
+            {t('Análise de ordens de serviço')} - {currentMonth}
           </p>
         </div>
 
@@ -26,16 +28,17 @@ const Header = () => {
               type="text"
               placeholder="Buscar ordens, defeitos..."
               className="pl-10 pr-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring w-64"
+              aria-label="Buscar ordens, defeitos"
             />
           </div>
 
           {/* Notifications */}
-          <button className="p-2 hover:bg-accent rounded-lg transition-colors">
+          <button className="p-2 hover:bg-accent rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary" aria-label="Notificações">
             <Bell className="h-5 w-5 text-foreground" />
           </button>
 
           {/* User */}
-          <button className="p-2 hover:bg-accent rounded-lg transition-colors">
+          <button className="p-2 hover:bg-accent rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary" aria-label="Usuário">
             <User className="h-5 w-5 text-foreground" />
           </button>
         </div>
