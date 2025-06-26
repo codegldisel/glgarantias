@@ -191,12 +191,12 @@ app.post("/process-data", async (req, res) => {
       });
     }
 
-    // 2. Inserir/atualizar dados na tabela ordens_servico
-    const { error: insertError } = await supabase
+    // 2. Inserir/atualizar dados na tabela ordens_servico usando upsert
+    const { error: upsertError } = await supabase
       .from("ordens_servico")
-      .insert(processedData);
+      .upsert(processedData, { onConflict: 'numero_os' }); // Assumindo 'numero_os' como chave de conflito
 
-    if (insertError) throw insertError;
+    if (upsertError) throw upsertError;
 
     // 3. Limpar temp_import_access após o processamento
     const { error: deleteError } = await supabase
