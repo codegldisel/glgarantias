@@ -22,13 +22,18 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Middlewares
 app.use(cors()); // Habilita CORS para todas as rotas
-app.use(express.json({ limit: '50mb' })); // Habilita o parsing de JSON no corpo das requisições
-app.use(express.urlencoded({ limit: '50mb', extended: true })); // Habilita o parsing de URL-encoded no corpo das requisições
+app.use(express.json({ limit: '100mb' })); // Habilita o parsing de JSON no corpo das requisições
+app.use(express.urlencoded({ limit: '100mb', extended: true })); // Habilita o parsing de URL-encoded no corpo das requisições
 
-// Configuração do Multer para upload de arquivos (apenas .xlsx, limite de 10MB)
+// Configuração do Multer para upload de arquivos (apenas .xlsx, limite de 100MB)
 const upload = multer({
   dest: "uploads/",
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB
+    fieldSize: 100 * 1024 * 1024,
+    fields: 50,
+    files: 10
+  },
   fileFilter: (req, file, cb) => {
     // Aceitar tanto por extensão quanto por MIME type
     const isXlsx = file.originalname.toLowerCase().endsWith('.xlsx') || 
@@ -45,6 +50,14 @@ const upload = multer({
 // Rota de teste
 app.get("/", (req, res) => {
   res.send("Backend do App de Garantias está funcionando!");
+});
+
+// Rota de teste para diagnóstico de limites
+app.get('/test-limits', (req, res) => {
+  res.json({
+    maxFileSize: '100MB configurado',
+    timestamp: new Date()
+  });
 });
 
 // Nova rota para upload de arquivo Excel - CORRIGIDA PARA DADOS REAIS
