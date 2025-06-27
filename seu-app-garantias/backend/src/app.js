@@ -114,6 +114,31 @@ const handleUploadError = (err, req, res, next) => {
   next(err);
 };
 
+// Função para tentar recarregar schema em caso de erro
+async function executeWithCacheRetry(operation, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error.message.includes('schema cache') && attempt < maxRetries) {
+        console.log(`Tentativa ${attempt} falhou devido ao cache. Tentando novamente...`);
+        
+        // Tentar recarregar o schema
+        try {
+          await supabase.rpc('reload_schema_cache');
+        } catch (reloadError) {
+          console.log('Não foi possível recarregar cache automaticamente');
+        }
+        
+        // Aguardar um pouco antes de tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 // Rota de teste
 app.get("/", (req, res) => {
   res.send("Backend do App de Garantias está funcionando!");
@@ -249,35 +274,70 @@ app.post('/api/upload-excel', upload.single('excel'), handleUploadError, async (
     
     console.log('Dados formatados para inserção:', dadosFormatados.length);
     
-    // 8. Inserir dados na tabela temp_import_access
-    const { error } = await supabase.from("temp_import_access").insert(dadosFormatados);
-    
-    // Remove arquivo temporário
-    fs.unlinkSync(req.file.path);
-    
-    if (error) {
+    // 8. Inserir dados na tabela temp_import_access com retry
+    const insertOperation = async () => {
+      const { data, error } = await supabase
+        .from("temp_import_access")
+        .insert(dadosFormatados)
+        .select();
+
+      if (error) {
+        throw new Error(`Erro na inserção: ${error.message}`);
+      }
+      
+      return data;
+    };
+
+    let insertedData;
+    try {
+      insertedData = await executeWithCacheRetry(insertOperation);
+      console.log('Dados inseridos com sucesso na tabela temporária');
+    } catch (error) {
       console.error("Erro ao inserir no Supabase:", error);
-      return res.status(500).json({
-        success: false,
-        error: "Erro ao processar e salvar dados: " + error.message
-      });
+      
+      // Remove arquivo temporário
+      fs.unlinkSync(req.file.path);
+      
+      // Tratamento específico para erros de schema cache
+      if (error.message.includes('schema cache')) {
+        return res.status(503).json({
+          success: false,
+          error: 'Erro temporário do banco de dados',
+          message: 'Tente novamente em alguns segundos. Se o problema persistir, contate o suporte.',
+          code: 'SCHEMA_CACHE_ERROR'
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: "Erro ao processar e salvar dados: " + error.message
+        });
+      }
     }
-    
-    console.log('Dados inseridos com sucesso na tabela temporária');
     
     // 9. Processar dados automaticamente
     console.log('Iniciando processamento automático...');
     
-    // Buscar dados da temp_import_access
-    const { data: tempData, error: fetchError } = await supabase
-      .from("temp_import_access")
-      .select("*");
+    // Buscar dados da temp_import_access com retry
+    const fetchOperation = async () => {
+      const { data, error } = await supabase
+        .from("temp_import_access")
+        .select("*");
 
-    if (fetchError) {
-      console.error("Erro ao buscar dados temporários:", fetchError);
+      if (error) {
+        throw new Error(`Erro ao buscar dados: ${error.message}`);
+      }
+      
+      return data;
+    };
+
+    let tempData;
+    try {
+      tempData = await executeWithCacheRetry(fetchOperation);
+    } catch (error) {
+      console.error("Erro ao buscar dados temporários:", error);
       return res.status(500).json({
         success: false,
-        error: "Erro ao processar dados: " + fetchError.message
+        error: "Erro ao processar dados: " + error.message
       });
     }
 
