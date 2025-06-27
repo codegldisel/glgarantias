@@ -13,7 +13,7 @@ const Header = () => {
       <div className="flex items-center justify-between">
         {/* Title */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('Dashboard de Garantias')}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('Análise de Garantias')}</h1>
           <p className="text-muted-foreground">
             {t('Análise de ordens de serviço')} - {currentMonth}
           </p>

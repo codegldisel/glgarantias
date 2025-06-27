@@ -5,6 +5,7 @@ const resources = {
   'pt-BR': {
     translation: {
       'Dashboard de Garantias': 'Dashboard de Garantias',
+      'Análise de Garantias': 'Análise de Garantias',
       'Análise de ordens de serviço': 'Análise de ordens de serviço',
       'Total de OS': 'Total de OS',
       'Total Peças': 'Total Peças',
@@ -20,6 +21,7 @@ const resources = {
   en: {
     translation: {
       'Dashboard de Garantias': 'Warranty Dashboard',
+      'Análise de Garantias': 'Warranty Analysis',
       'Análise de ordens de serviço': 'Service Order Analysis',
       'Total de OS': 'Total OS',
       'Total Peças': 'Total Parts',
