@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import logoLucio from '../../assets/logo-lucio.png'
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -38,9 +39,7 @@ const Sidebar = () => {
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
         {!isCollapsed && (
-          <h1 className="text-sidebar-foreground font-bold text-lg">
-            GarantiasPulse
-          </h1>
+          <img src={logoLucio} alt="Retífica de Motores Lúcio" className="h-10" />
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
