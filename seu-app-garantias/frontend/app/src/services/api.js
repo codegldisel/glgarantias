@@ -27,6 +27,8 @@ class ApiService {
         ...options.headers,
       },
       ...options,
+      // Adicionar timeout de 30 segundos
+      signal: AbortSignal.timeout(30000),
     };
 
     // Aplicar interceptors de requisição
@@ -54,6 +56,13 @@ class ApiService {
           errorMessage = errorData || `HTTP error! status: ${processedResponse.status}`;
         }
         
+        // Categorizar erros
+        if (processedResponse.status >= 400 && processedResponse.status < 500) {
+          throw new Error(`Erro do cliente: ${errorMessage}`);
+        } else if (processedResponse.status >= 500) {
+          throw new Error(`Erro do servidor: ${errorMessage}`);
+        }
+        
         throw new Error(errorMessage);
       }
       
@@ -66,7 +75,11 @@ class ApiService {
     } catch (error) {
       console.error(`API request failed for ${endpoint}:`, error);
       
-      // Tratamento específico de erros de rede
+      // Tratamento específico de erros
+      if (error.name === 'AbortError') {
+        throw new Error('Timeout: A requisição demorou muito para responder.');
+      }
+      
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         throw new Error('Erro de conexão com o servidor. Verifique sua conexão de internet.');
       }
