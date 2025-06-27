@@ -5,6 +5,7 @@ const { createClient } = require("@supabase/supabase-js");
 const multer = require("multer");
 const xlsx = require("xlsx");
 const fs = require("fs");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,46 +26,155 @@ app.use(cors()); // Habilita CORS para todas as rotas
 app.use(express.json({ limit: '100mb' })); // Habilita o parsing de JSON no corpo das requisições
 app.use(express.urlencoded({ limit: '100mb', extended: true })); // Habilita o parsing de URL-encoded no corpo das requisições
 
-// Configuração do Multer para upload de arquivos (apenas .xlsx, limite de 100MB)
-const upload = multer({
-  dest: "uploads/",
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
-    fieldSize: 100 * 1024 * 1024,
-    fields: 50,
-    files: 10
-  },
-  fileFilter: (req, file, cb) => {
-    // Aceitar tanto por extensão quanto por MIME type
-    const isXlsx = file.originalname.toLowerCase().endsWith('.xlsx') || 
-                   file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    
-    if (isXlsx) {
-      cb(null, true);
-    } else {
-      cb(new Error("Apenas arquivos .xlsx são permitidos."));
-    }
-  },
+// Middleware de log para debug
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
 });
+
+// Configuração de armazenamento personalizada
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// Filtro de arquivo para aceitar apenas Excel
+const fileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel'
+  ];
+  
+  // Verificar por MIME type e extensão
+  const isExcelByMime = allowedMimes.includes(file.mimetype);
+  const isExcelByExt = file.originalname.toLowerCase().endsWith('.xlsx') || 
+                      file.originalname.toLowerCase().endsWith('.xls');
+  
+  if (isExcelByMime || isExcelByExt) {
+    cb(null, true);
+  } else {
+    cb(new Error('Apenas arquivos Excel (.xlsx, .xls) são permitidos'), false);
+  }
+};
+
+// Configuração do upload com limites e filtros melhorados
+const upload = multer({ 
+  storage: storage,
+  limits: { 
+    fileSize: 15 * 1024 * 1024, // 15MB para arquivos Excel grandes
+    files: 1 // Apenas um arquivo por vez
+  },
+  fileFilter: fileFilter
+});
+
+// Middleware de tratamento de erro para upload
+const handleUploadError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
+        return res.status(400).json({
+          success: false,
+          error: 'Arquivo muito grande',
+          message: 'O arquivo deve ter no máximo 15MB'
+        });
+      case 'LIMIT_FILE_COUNT':
+        return res.status(400).json({
+          success: false,
+          error: 'Muitos arquivos',
+          message: 'Envie apenas um arquivo por vez'
+        });
+      case 'LIMIT_UNEXPECTED_FILE':
+        return res.status(400).json({
+          success: false,
+          error: 'Campo de arquivo inválido',
+          message: 'Use o campo correto para envio do arquivo'
+        });
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Erro no upload',
+          message: err.message
+        });
+    }
+  }
+  
+  if (err.message.includes('Apenas arquivos Excel')) {
+    return res.status(400).json({
+      success: false,
+      error: 'Tipo de arquivo inválido',
+      message: err.message
+    });
+  }
+  
+  next(err);
+};
 
 // Rota de teste
 app.get("/", (req, res) => {
   res.send("Backend do App de Garantias está funcionando!");
 });
 
+// Rota de teste para verificar se o servidor está funcionando
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Servidor funcionando!',
+    timestamp: new Date().toISOString(),
+    routes: ['/api/upload-excel', '/upload-excel', '/api/test']
+  });
+});
+
 // Rota de teste para diagnóstico de limites
 app.get('/test-limits', (req, res) => {
   res.json({
-    maxFileSize: '100MB configurado',
+    maxFileSize: '15MB configurado',
     timestamp: new Date()
   });
 });
 
-// Nova rota para upload de arquivo Excel - CORRIGIDA PARA DADOS REAIS
-app.post("/upload-excel", upload.single("file"), async (req, res) => {
+// Nova rota de upload usando campo "excel" conforme recomendado
+app.post('/api/upload-excel', upload.single('excel'), handleUploadError, (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "Nenhum arquivo enviado ou tipo inválido." });
+      return res.status(400).json({
+        success: false,
+        error: 'Nenhum arquivo foi enviado'
+      });
+    }
+    
+    // Aqui você pode processar o arquivo Excel
+    res.json({
+      success: true,
+      message: 'Arquivo enviado com sucesso',
+      file: {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        path: req.file.path
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      message: error.message
+    });
+  }
+});
+
+// Nova rota para upload de arquivo Excel - CORRIGIDA PARA DADOS REAIS
+app.post("/upload-excel", upload.single("file"), handleUploadError, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Nenhum arquivo foi enviado" 
+      });
     }
 
     console.log("Arquivo recebido:", req.file.originalname, "MIME:", req.file.mimetype);
@@ -89,7 +199,10 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
 
     if (garantiaOS.length === 0) {
       fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: "Nenhuma OS de garantia encontrada no arquivo." });
+      return res.status(400).json({ 
+        success: false,
+        error: "Nenhuma OS de garantia encontrada no arquivo." 
+      });
     }
 
     // Mapear dados para o formato esperado pelo banco
@@ -139,12 +252,22 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
 
     if (error) {
       console.error("Erro ao inserir no Supabase:", error);
-      return res.status(500).json({ error: "Erro ao processar e salvar dados: " + error.message });
+      return res.status(500).json({ 
+        success: false,
+        error: "Erro ao processar e salvar dados: " + error.message 
+      });
     }
 
     res.status(200).json({ 
+      success: true,
       message: "Arquivo processado e dados inseridos com sucesso!", 
       count: dadosFormatados.length,
+      file: {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        path: req.file.path
+      },
       detalhes: {
         total_linhas_excel: data.length,
         oss_garantia_encontradas: garantiaOS.length,
@@ -154,7 +277,10 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
   } catch (error) {
     console.error("Erro no upload:", error);
     if (req.file) fs.unlinkSync(req.file.path);
-    res.status(500).json({ error: "Erro interno do servidor: " + error.message });
+    res.status(500).json({ 
+      success: false,
+      error: "Erro interno do servidor: " + error.message 
+    });
   }
 });
 
