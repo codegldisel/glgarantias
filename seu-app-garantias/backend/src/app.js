@@ -22,21 +22,21 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Middlewares
 app.use(cors()); // Habilita CORS para todas as rotas
-app.use(express.json({ limit: '100mb' })); // Habilita o parsing de JSON no corpo das requisições
-app.use(express.urlencoded({ limit: '100mb', extended: true })); // Habilita o parsing de URL-encoded no corpo das requisições
+app.use(express.json({ limit: '1gb' })); // Habilita o parsing de JSON no corpo das requisições
+app.use(express.urlencoded({ limit: '1gb', extended: true })); // Habilita o parsing de URL-encoded no corpo das requisições
 
 // Configuração do Multer para upload de arquivos (apenas .xlsx, limite de 100MB)
 const upload = multer({
   dest: "uploads/",
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
-    fieldSize: 100 * 1024 * 1024,
+    fileSize: 1024 * 1024 * 1024, // 1GB
+    fieldSize: 1024 * 1024 * 1024,
     fields: 50,
     files: 10
   },
   fileFilter: (req, file, cb) => {
     // Aceitar tanto por extensão quanto por MIME type
-    const isXlsx = file.originalname.toLowerCase().endsWith('.xlsx') || 
+    const isXlsx = file.originalname.toLowerCase().endsWith(".xlsx") || 
                    file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     
     if (isXlsx) {
@@ -55,7 +55,7 @@ app.get("/", (req, res) => {
 // Rota de teste para diagnóstico de limites
 app.get('/test-limits', (req, res) => {
   res.json({
-    maxFileSize: '100MB configurado',
+    maxFileSize: '1GB configurado',
     timestamp: new Date()
   });
 });
@@ -67,7 +67,7 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Nenhum arquivo enviado ou tipo inválido." });
     }
 
-    console.log("Arquivo recebido:", req.file.originalname, "MIME:", req.file.mimetype);
+    console.log("Arquivo recebido:", req.file.originalname, "MIME:", req.file.mimetype, "Tamanho:", req.file.size, "bytes");
 
     const workbook = xlsx.readFile(req.file.path);
     const sheetName = workbook.SheetNames[0];
@@ -371,4 +371,20 @@ app.post("/api/defeitos-nao-mapeados", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+
+
+// Middleware de tratamento de erros global
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    console.error("Multer Error:", err.code, err.message);
+    return res.status(500).json({ error: `Erro de upload: ${err.message}` });
+  } else if (err) {
+    console.error("Erro geral do servidor:", err.message, err.stack);
+    return res.status(500).json({ error: "Erro interno do servidor." });
+  }
+  next();
+});
+
+
 
