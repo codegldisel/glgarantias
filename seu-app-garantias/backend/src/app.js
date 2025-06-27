@@ -137,8 +137,10 @@ app.get('/test-limits', (req, res) => {
 });
 
 // Nova rota de upload usando campo "excel" conforme recomendado
-app.post('/api/upload-excel', upload.single('excel'), handleUploadError, (req, res) => {
+app.post('/api/upload-excel', upload.single('excel'), handleUploadError, async (req, res) => {
   try {
+    console.log('=== PROCESSAMENTO COMPLETO ===');
+    
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -146,19 +148,250 @@ app.post('/api/upload-excel', upload.single('excel'), handleUploadError, (req, r
       });
     }
     
-    // Aqui você pode processar o arquivo Excel
-    res.json({
+    // 1. Verificar arquivo
+    console.log('Arquivo recebido:', {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+    
+    // 2. Ler workbook
+    const workbook = xlsx.readFile(req.file.path);
+    console.log('Abas disponíveis:', workbook.SheetNames);
+    
+    // 3. Analisar primeira aba
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    console.log('Range da planilha:', worksheet['!ref']);
+    
+    // 4. Usar método robusto que funcionou no diagnóstico
+    const rawData = xlsx.utils.sheet_to_json(worksheet, { 
+      header: 1, 
+      defval: '', 
+      blankrows: false, 
+      raw: false 
+    });
+    
+    console.log('Total de linhas lidas:', rawData.length);
+    
+    if (rawData.length < 2) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: 'Planilha deve ter cabeçalho + dados'
+      });
+    }
+    
+    // 5. Processar cabeçalhos
+    const headers = rawData[0].map(h => String(h || '').trim());
+    console.log('Cabeçalhos processados:', headers.length);
+    
+    // 6. Filtrar dados de garantia
+    const garantiaData = [];
+    for (let i = 1; i < rawData.length; i++) {
+      const row = rawData[i];
+      const statusIndex = headers.indexOf('Status_OSv');
+      const statusValue = statusIndex >= 0 ? String(row[statusIndex] || '').toUpperCase() : '';
+      
+      if (['G', 'GO', 'GU'].includes(statusValue)) {
+        const rowObj = {};
+        headers.forEach((header, index) => {
+          if (header) {
+            rowObj[header] = row[index] || '';
+          }
+        });
+        garantiaData.push(rowObj);
+      }
+    }
+    
+    console.log('Dados de garantia filtrados:', garantiaData.length);
+    
+    if (garantiaData.length === 0) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: 'Nenhuma OS de garantia encontrada no arquivo'
+      });
+    }
+    
+    // 7. Mapear dados para o formato do banco
+    const dadosFormatados = garantiaData.map(row => {
+      // Converter data para formato ISO se necessário
+      let dataOS = null;
+      if (row["Data_OSv"]) {
+        try {
+          const date = new Date(row["Data_OSv"]);
+          if (!isNaN(date.getTime())) {
+            dataOS = date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+          }
+        } catch (e) {
+          console.warn("Erro ao converter data:", row["Data_OSv"]);
+        }
+      }
+
+      return {
+        // Apenas as colunas que existem na tabela temp_import_access
+        data_os: dataOS,
+        numero_os: row["NOrdem_OSv"] || null,
+        fabricante: row["Fabricante_Mot"] || null,
+        motor: row["Descricao_Mot"] || null,
+        modelo: row["ModeloVei_Osv"] || null,
+        observacoes: row["Obs_Osv"] || null,
+        defeito: row["ObsCorpo_OSv"] || null,
+        mecanico_montador: row["Mecanico"] || null,
+        cliente: row["Nome_Cli"] || null,
+        total_pecas: parseFloat(row["TOT. PÇ"]) || 0,
+        total_servicos: parseFloat(row["TOT. SERV."]) || 0,
+        total_geral: parseFloat(row["TOT"]) || 0,
+        tipo_os: row["Status_OSv"] || null
+      };
+    });
+    
+    console.log('Dados formatados para inserção:', dadosFormatados.length);
+    
+    // 8. Inserir dados na tabela temp_import_access
+    const { error } = await supabase.from("temp_import_access").insert(dadosFormatados);
+    
+    // Remove arquivo temporário
+    fs.unlinkSync(req.file.path);
+    
+    if (error) {
+      console.error("Erro ao inserir no Supabase:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Erro ao processar e salvar dados: " + error.message
+      });
+    }
+    
+    console.log('Dados inseridos com sucesso na tabela temporária');
+    
+    // 9. Processar dados automaticamente
+    console.log('Iniciando processamento automático...');
+    
+    // Buscar dados da temp_import_access
+    const { data: tempData, error: fetchError } = await supabase
+      .from("temp_import_access")
+      .select("*");
+
+    if (fetchError) {
+      console.error("Erro ao buscar dados temporários:", fetchError);
+      return res.status(500).json({
+        success: false,
+        error: "Erro ao processar dados: " + fetchError.message
+      });
+    }
+
+    if (!tempData || tempData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Nenhum dado encontrado na tabela temporária após inserção."
+      });
+    }
+
+    // Buscar mapeamentos de defeitos
+    const { data: mapeamentos, error: mapError } = await supabase
+      .from("mapeamento_defeitos")
+      .select("*");
+
+    if (mapError) {
+      console.error("Erro ao buscar mapeamentos:", mapError);
+      return res.status(500).json({
+        success: false,
+        error: "Erro ao buscar mapeamentos: " + mapError.message
+      });
+    }
+
+    const unmappedDefects = new Set();
+
+    // Processar cada registro
+    const processedData = tempData.map(row => {
+      let grupo_id = null;
+      let subgrupo_id = null;
+      let subsubgrupo_id = null;
+
+      // Tentar mapear o defeito
+      if (row.defeito) {
+        const mapeamento = mapeamentos.find(m => 
+          row.defeito.toLowerCase().includes(m.descricao_original.toLowerCase())
+        );
+        
+        if (mapeamento) {
+          grupo_id = mapeamento.grupo_id;
+          subgrupo_id = mapeamento.subgrupo_id;
+          subsubgrupo_id = mapeamento.subsubgrupo_id;
+        } else {
+          unmappedDefects.add(row.defeito);
+        }
+      }
+
+      return {
+        numero_os: row.numero_os,
+        data_os: row.data_os,
+        fabricante: row.fabricante,
+        motor: row.motor,
+        modelo: row.modelo,
+        observacoes: row.observacoes,
+        defeito: row.defeito,
+        mecanico_montador: row.mecanico_montador,
+        cliente: row.cliente,
+        total_pecas: parseFloat(row.total_pecas) || 0,
+        total_servicos: parseFloat(row.total_servicos) || 0,
+        total_geral: parseFloat(row.total_geral) || 0,
+        grupo_defeito_id: grupo_id,
+        subgrupo_defeito_id: subgrupo_id,
+        subsubgrupo_defeito_id: subsubgrupo_id,
+        tipo_os: row.tipo_os
+      };
+    });
+
+    // Inserir/atualizar dados na tabela ordens_servico
+    const { error: upsertError } = await supabase
+      .from("ordens_servico")
+      .upsert(processedData, { onConflict: "numero_os" });
+
+    if (upsertError) {
+      console.error("Erro ao inserir/atualizar ordens_servico:", upsertError);
+      return res.status(500).json({
+        success: false,
+        error: "Erro ao processar dados: " + upsertError.message
+      });
+    }
+
+    // Limpar temp_import_access
+    const { error: deleteError } = await supabase
+      .from("temp_import_access")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (deleteError) {
+      console.error("Erro ao limpar temp_import_access:", deleteError.message);
+    }
+
+    console.log('Processamento completo finalizado com sucesso');
+    
+    // Retornar resultado completo
+    res.status(200).json({
       success: true,
-      message: 'Arquivo enviado com sucesso',
+      message: "Arquivo processado e dados inseridos com sucesso!",
+      count: dadosFormatados.length,
       file: {
         filename: req.file.filename,
         originalname: req.file.originalname,
-        size: req.file.size,
-        path: req.file.path
-      }
+        size: req.file.size
+      },
+      detalhes: {
+        total_linhas_excel: rawData.length - 1, // -1 para excluir cabeçalho
+        oss_garantia_encontradas: garantiaData.length,
+        oss_inseridas: dadosFormatados.length,
+        oss_processadas: processedData.length,
+        defeitos_nao_mapeados: Array.from(unmappedDefects).length
+      },
+      defeitos_nao_mapeados: Array.from(unmappedDefects)
     });
     
   } catch (error) {
+    console.error('Erro no processamento:', error);
+    if (req.file) fs.unlinkSync(req.file.path);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -352,16 +585,10 @@ app.post("/process-data", async (req, res) => {
         total_pecas: parseFloat(row.total_pecas) || 0,
         total_servicos: parseFloat(row.total_servicos) || 0,
         total_geral: parseFloat(row.total_geral) || 0,
-        grupo_id,
-        subgrupo_id,
-        subsubgrupo_id,
-        tipo_os: row.tipo_os,
-        // Campos adicionais
-        codigo_cliente: row.codigo_cliente,
-        placa: row.placa,
-        km: row.km,
-        montador: row.montador,
-        razao_social_cliente: row.razao_social_cliente
+        grupo_defeito_id: grupo_id,
+        subgrupo_defeito_id: subgrupo_id,
+        subsubgrupo_defeito_id: subsubgrupo_id,
+        tipo_os: row.tipo_os
       };
     });
 
