@@ -9,51 +9,8 @@ const DefeitosBarChart = () => {
   const [data, setData] = useState([])
 
   useEffect(() => {
-<<<<<<< HEAD
-    loadDefeitosData()
-  }, [])
-
-  const loadDefeitosData = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await ApiService.getOrdensServico()
-      
-      if (response && response.data) {
-        const ordens = response.data
-        
-        // Contar defeitos
-        const defeitosCount = {}
-        ordens.forEach(os => {
-          if (os.defeito && os.defeito.trim() !== '') {
-            const defeito = os.defeito.trim()
-            defeitosCount[defeito] = (defeitosCount[defeito] || 0) + 1
-          }
-        })
-        
-        // Converter para array e ordenar pelos mais comuns
-        const defeitosArray = Object.entries(defeitosCount)
-          .map(([defeito, quantidade]) => ({
-            defeito: defeito.length > 30 ? defeito.substring(0, 30) + '...' : defeito,
-            quantidade,
-            defeitoCompleto: defeito
-          }))
-          .sort((a, b) => b.quantidade - a.quantidade)
-          .slice(0, 10) // Top 10 defeitos
-        
-        setData(defeitosArray)
-      } else {
-        setError('Nenhum dado encontrado')
-      }
-    } catch (err) {
-      console.error('Erro ao carregar dados de defeitos:', err)
-      setError('Erro ao carregar dados de defeitos. Verifique sua conexão.')
-    } finally {
-      setLoading(false)
-=======
     if (ordensServico.length > 0) {
       processDefeitosData()
->>>>>>> 7053f5a7ee429d19c5a4e5b1a89078dfdbf4766a
     }
   }, [ordensServico])
 

@@ -52,10 +52,10 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
     }
 
     // Validar tamanho (máximo 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB em bytes
+    const maxSize = 50 * 1024 * 1024 // 50MB em bytes
     if (file.size > maxSize) {
       const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
-      alert(`O arquivo deve ter no máximo 5MB.\nTamanho atual: ${fileSizeMB}MB`)
+      alert(`O arquivo deve ter no máximo 50MB.\nTamanho atual: ${fileSizeMB}MB`)
       return
     }
 

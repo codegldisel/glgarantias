@@ -5,23 +5,23 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(),tailwindcss()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
   define: {
-    'process.env': process.env
+    'process.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
   server: {
-    host: process.env.VITE_HOST || '0.0.0.0',
-    port: process.env.VITE_PORT || 5173,
-    allowedHosts: process.env.VITE_ALLOWED_HOSTS?.split(',') || ['localhost', '127.0.0.1']
+    host: '0.0.0.0',
+    port: 5173,
   },
   build: {
     outDir: 'dist',
-    sourcemap: process.env.NODE_ENV === 'development',
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
