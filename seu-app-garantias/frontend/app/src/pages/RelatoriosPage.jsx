@@ -88,7 +88,7 @@ const RelatoriosPage = () => {
     setTimeout(() => {
       setGenerating(null)
       // Aqui seria feito o download do arquivo
-      console.log(`Relatório ${relatorioId} gerado em ${formato}`)
+      // console.log(`Relatório ${relatorioId} gerado em ${formato}`)
     }, 3000)
   }
 

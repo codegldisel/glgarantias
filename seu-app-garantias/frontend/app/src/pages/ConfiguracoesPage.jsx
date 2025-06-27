@@ -59,7 +59,6 @@ const ConfiguracoesPage = () => {
     // Simular salvamento
     setTimeout(() => {
       setSaving(false)
-      console.log('Configurações salvas:', configs)
     }, 2000)
   }
 

@@ -1,5 +1,6 @@
 import * as React from "react"
 import * as HoverCardPrimitive from "@radix-ui/react-hover-card"
+import PropTypes from 'prop-types'
 
 import { cn } from "@/lib/utils"
 
@@ -34,6 +35,14 @@ function HoverCardContent({
         {...props} />
     </HoverCardPrimitive.Portal>
   );
+}
+
+HoverCard.propTypes = {}
+HoverCardTrigger.propTypes = {}
+HoverCardContent.propTypes = {
+  className: PropTypes.string,
+  align: PropTypes.string,
+  sideOffset: PropTypes.number
 }
 
 export { HoverCard, HoverCardTrigger, HoverCardContent }

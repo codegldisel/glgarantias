@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority";
+import PropTypes from 'prop-types'
 
 import { cn } from "@/lib/utils"
 
@@ -50,6 +51,13 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       {...props} />
   );
+}
+
+Button.propTypes = {
+  className: PropTypes.string,
+  variant: PropTypes.string,
+  size: PropTypes.string,
+  asChild: PropTypes.bool
 }
 
 export { Button, buttonVariants }

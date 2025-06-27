@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { ChevronRight, MoreHorizontal } from "lucide-react"
+import PropTypes from 'prop-types'
 
 import { cn } from "@/lib/utils"
 
@@ -100,6 +101,14 @@ function BreadcrumbEllipsis({
     </span>
   );
 }
+
+Breadcrumb.propTypes = {}
+BreadcrumbList.propTypes = { className: PropTypes.string }
+BreadcrumbItem.propTypes = { className: PropTypes.string }
+BreadcrumbLink.propTypes = { asChild: PropTypes.bool, className: PropTypes.string }
+BreadcrumbPage.propTypes = { className: PropTypes.string }
+BreadcrumbSeparator.propTypes = { children: PropTypes.node, className: PropTypes.string }
+BreadcrumbEllipsis.propTypes = { className: PropTypes.string }
 
 export {
   Breadcrumb,

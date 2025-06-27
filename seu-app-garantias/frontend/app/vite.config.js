@@ -11,9 +11,26 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    'process.env': process.env
+  },
   server: {
-    host: '0.0.0.0',
-    allowedHosts: ['5173-i3s2tifylj88dyhyg9j0c-a72292d1.manusvm.computer', 'localhost', '127.0.0.1']
+    host: process.env.VITE_HOST || '0.0.0.0',
+    port: process.env.VITE_PORT || 5173,
+    allowedHosts: process.env.VITE_ALLOWED_HOSTS?.split(',') || ['localhost', '127.0.0.1']
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: process.env.NODE_ENV === 'development',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          charts: ['recharts']
+        }
+      }
+    }
   }
 })
 

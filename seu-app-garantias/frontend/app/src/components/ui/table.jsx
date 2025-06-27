@@ -1,4 +1,5 @@
 import * as React from "react"
+import PropTypes from 'prop-types'
 
 import { cn } from "@/lib/utils"
 
@@ -16,6 +17,10 @@ function Table({
   );
 }
 
+Table.propTypes = {
+  className: PropTypes.string
+}
+
 function TableHeader({
   className,
   ...props
@@ -26,6 +31,10 @@ function TableHeader({
       className={cn("[&_tr]:border-b", className)}
       {...props} />
   );
+}
+
+TableHeader.propTypes = {
+  className: PropTypes.string
 }
 
 function TableBody({
@@ -40,6 +49,10 @@ function TableBody({
   );
 }
 
+TableBody.propTypes = {
+  className: PropTypes.string
+}
+
 function TableFooter({
   className,
   ...props
@@ -50,6 +63,10 @@ function TableFooter({
       className={cn("bg-muted/50 border-t font-medium [&>tr]:last:border-b-0", className)}
       {...props} />
   );
+}
+
+TableFooter.propTypes = {
+  className: PropTypes.string
 }
 
 function TableRow({
@@ -67,6 +84,10 @@ function TableRow({
   );
 }
 
+TableRow.propTypes = {
+  className: PropTypes.string
+}
+
 function TableHead({
   className,
   ...props
@@ -80,6 +101,10 @@ function TableHead({
       )}
       {...props} />
   );
+}
+
+TableHead.propTypes = {
+  className: PropTypes.string
 }
 
 function TableCell({
@@ -97,6 +122,10 @@ function TableCell({
   );
 }
 
+TableCell.propTypes = {
+  className: PropTypes.string
+}
+
 function TableCaption({
   className,
   ...props
@@ -107,6 +136,10 @@ function TableCaption({
       className={cn("text-muted-foreground mt-4 text-sm", className)}
       {...props} />
   );
+}
+
+TableCaption.propTypes = {
+  className: PropTypes.string
 }
 
 export {
