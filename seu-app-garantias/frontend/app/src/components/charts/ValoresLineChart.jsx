@@ -14,6 +14,7 @@ const ValoresLineChart = () => {
   const loadValoresData = async () => {
     try {
       setLoading(true)
+      setError(null)
       const response = await ApiService.getOrdensServico()
       
       if (response && response.data) {
@@ -52,10 +53,12 @@ const ValoresLineChart = () => {
           })
         
         setData(valoresArray)
+      } else {
+        setError('Nenhum dado encontrado')
       }
     } catch (err) {
       console.error('Erro ao carregar dados de valores:', err)
-      setError('Erro ao carregar dados de valores')
+      setError('Erro ao carregar dados de valores. Verifique sua conexão.')
     } finally {
       setLoading(false)
     }

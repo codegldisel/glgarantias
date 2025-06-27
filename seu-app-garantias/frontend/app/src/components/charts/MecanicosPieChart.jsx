@@ -7,10 +7,11 @@ const MecanicosPieChart = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Cores para o gráfico de pizza
+  // Cores para o gráfico de pizza com melhor contraste
   const COLORS = [
     '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
-    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
+    '#A855F7', '#F43F5E', '#14B8A6', '#EAB308', '#7C3AED'
   ]
 
   useEffect(() => {

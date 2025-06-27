@@ -40,15 +40,22 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
 
   const handleFileSelection = (file) => {
     // Validar tipo de arquivo
-    if (!file.name.endsWith('.xlsx') && 
-        file.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
-      alert('Por favor, selecione apenas arquivos Excel (.xlsx)')
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ]
+    
+    if (!file.name.toLowerCase().endsWith('.xlsx') && 
+        !allowedTypes.includes(file.type)) {
+      alert('Por favor, selecione apenas arquivos Excel (.xlsx).\nTipos aceitos: .xlsx')
       return
     }
 
     // Validar tamanho (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('O arquivo deve ter no máximo 5MB')
+    const maxSize = 5 * 1024 * 1024 // 5MB em bytes
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
+      alert(`O arquivo deve ter no máximo 5MB.\nTamanho atual: ${fileSizeMB}MB`)
       return
     }
 

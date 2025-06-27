@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import ApiService from '../../services/api'
 
@@ -14,6 +14,7 @@ const DefeitosBarChart = () => {
   const loadDefeitosData = async () => {
     try {
       setLoading(true)
+      setError(null)
       const response = await ApiService.getOrdensServico()
       
       if (response && response.data) {
@@ -39,14 +40,24 @@ const DefeitosBarChart = () => {
           .slice(0, 10) // Top 10 defeitos
         
         setData(defeitosArray)
+      } else {
+        setError('Nenhum dado encontrado')
       }
     } catch (err) {
       console.error('Erro ao carregar dados de defeitos:', err)
-      setError('Erro ao carregar dados de defeitos')
+      setError('Erro ao carregar dados de defeitos. Verifique sua conexão.')
     } finally {
       setLoading(false)
     }
   }
+
+  // Memoizar dados processados para melhor performance
+  const processedData = useMemo(() => {
+    return data.map(item => ({
+      ...item,
+      quantidade: Number(item.quantidade) || 0
+    }))
+  }, [data])
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -96,7 +107,7 @@ const DefeitosBarChart = () => {
       
       <ResponsiveContainer width="100%" height={400}>
         <BarChart
-          data={data}
+          data={processedData}
           margin={{
             top: 20,
             right: 30,
