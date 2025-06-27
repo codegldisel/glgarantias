@@ -1,51 +1,40 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import ApiService from '../../services/api'
+import { useApp } from '../../contexts/AppContext'
+import LoadingSpinner from '../common/LoadingSpinner'
 
 const DefeitosBarChart = () => {
+  const { state } = useApp()
+  const { ordensServico, loading, errors } = state
   const [data, setData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
   useEffect(() => {
-    loadDefeitosData()
-  }, [])
-
-  const loadDefeitosData = async () => {
-    try {
-      setLoading(true)
-      const response = await ApiService.getOrdensServico()
-      
-      if (response && response.data) {
-        const ordens = response.data
-        
-        // Contar defeitos
-        const defeitosCount = {}
-        ordens.forEach(os => {
-          if (os.defeito && os.defeito.trim() !== '') {
-            const defeito = os.defeito.trim()
-            defeitosCount[defeito] = (defeitosCount[defeito] || 0) + 1
-          }
-        })
-        
-        // Converter para array e ordenar pelos mais comuns
-        const defeitosArray = Object.entries(defeitosCount)
-          .map(([defeito, quantidade]) => ({
-            defeito: defeito.length > 30 ? defeito.substring(0, 30) + '...' : defeito,
-            quantidade,
-            defeitoCompleto: defeito
-          }))
-          .sort((a, b) => b.quantidade - a.quantidade)
-          .slice(0, 10) // Top 10 defeitos
-        
-        setData(defeitosArray)
-      }
-    } catch (err) {
-      console.error('Erro ao carregar dados de defeitos:', err)
-      setError('Erro ao carregar dados de defeitos')
-    } finally {
-      setLoading(false)
+    if (ordensServico.length > 0) {
+      processDefeitosData()
     }
+  }, [ordensServico])
+
+  const processDefeitosData = () => {
+    // Contar defeitos
+    const defeitosCount = {}
+    ordensServico.forEach(os => {
+      if (os.defeito && os.defeito.trim() !== '') {
+        const defeito = os.defeito.trim()
+        defeitosCount[defeito] = (defeitosCount[defeito] || 0) + 1
+      }
+    })
+    
+    // Converter para array e ordenar pelos mais comuns
+    const defeitosArray = Object.entries(defeitosCount)
+      .map(([defeito, quantidade]) => ({
+        defeito: defeito.length > 30 ? defeito.substring(0, 30) + '...' : defeito,
+        quantidade,
+        defeitoCompleto: defeito
+      }))
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, 10) // Top 10 defeitos
+    
+    setData(defeitosArray)
   }
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -63,25 +52,31 @@ const DefeitosBarChart = () => {
     return null
   }
 
-  if (loading) {
+  if (loading.ordensServico) {
     return (
       <div className="w-full h-80 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <LoadingSpinner text="Carregando dados de defeitos..." />
       </div>
     )
   }
 
-  if (error) {
+  if (errors.ordensServico) {
     return (
       <div className="w-full h-80 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-2">{error}</p>
-          <button 
-            onClick={loadDefeitosData}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            Tentar novamente
-          </button>
+          <p className="text-red-600 mb-2">{errors.ordensServico}</p>
+          <p className="text-sm text-gray-600">Erro ao carregar dados de defeitos</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="w-full h-80 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-2">Nenhum dado de defeito encontrado</p>
+          <p className="text-sm text-gray-500">Importe dados para visualizar os gráficos</p>
         </div>
       </div>
     )
