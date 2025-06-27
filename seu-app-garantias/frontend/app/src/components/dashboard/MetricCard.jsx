@@ -15,7 +15,7 @@ const MetricCard = ({ title, value, icon: Icon, trend, trendValue, description, 
       </CardHeader>
       <CardContent>
         <div className={`text-2xl font-bold ${hasError ? 'text-muted-foreground' : 'text-foreground'}`}>
-          {hasError ? t('Dados indisponíveis') : value}
+          {hasError ? '---' : value}
         </div>
         {trend && !hasError && (
           <div className="flex items-center space-x-1 text-xs text-muted-foreground mt-1">
