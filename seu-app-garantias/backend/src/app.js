@@ -60,6 +60,182 @@ app.get('/test-limits', (req, res) => {
   });
 });
 
+// Rota de teste para upload de chunks (sem multer)
+app.post("/api/upload-chunk-test", (req, res) => {
+  res.json({ message: "Rota de teste funcionando!" });
+});
+
+// Rota para upload de chunks (pedaços de arquivo)
+app.post("/api/upload-chunk", upload.single("chunk"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "Nenhum chunk enviado." });
+    }
+
+    const { chunkIndex, totalChunks, uploadId, fileName, fileSize } = req.body;
+
+    // Validar parâmetros
+    if (!chunkIndex || !totalChunks || !uploadId || !fileName) {
+      return res.status(400).json({ error: "Parâmetros de chunk inválidos." });
+    }
+
+    // Criar diretório para o upload se não existir
+    const uploadDir = `uploads/chunks/${uploadId}`;
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Salvar chunk com nome sequencial
+    const chunkPath = `${uploadDir}/chunk_${chunkIndex}`;
+    fs.renameSync(req.file.path, chunkPath);
+
+    console.log(`Chunk ${parseInt(chunkIndex) + 1}/${totalChunks} recebido para upload ${uploadId}`);
+
+    res.status(200).json({ 
+      message: `Chunk ${parseInt(chunkIndex) + 1}/${totalChunks} recebido com sucesso!`,
+      chunkIndex: parseInt(chunkIndex),
+      totalChunks: parseInt(totalChunks)
+    });
+
+  } catch (error) {
+    console.error("Erro no upload do chunk:", error);
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: "Erro interno do servidor: " + error.message });
+  }
+});
+
+// Rota para finalizar upload (remontar arquivo)
+app.post("/api/finalize-upload", async (req, res) => {
+  try {
+    const { uploadId, fileName, totalChunks } = req.body;
+
+    if (!uploadId || !fileName || !totalChunks) {
+      return res.status(400).json({ error: "Parâmetros de finalização inválidos." });
+    }
+
+    const uploadDir = `uploads/chunks/${uploadId}`;
+    const finalFilePath = `uploads/${fileName}`;
+
+    // Verificar se todos os chunks existem
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = `${uploadDir}/chunk_${i}`;
+      if (!fs.existsSync(chunkPath)) {
+        return res.status(400).json({ error: `Chunk ${i} não encontrado.` });
+      }
+    }
+
+    // Remontar arquivo
+    const writeStream = fs.createWriteStream(finalFilePath);
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = `${uploadDir}/chunk_${i}`;
+      const chunkData = fs.readFileSync(chunkPath);
+      writeStream.write(chunkData);
+    }
+    
+    writeStream.end();
+
+    // Aguardar finalização da escrita
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
+
+    console.log(`Arquivo ${fileName} remontado com sucesso!`);
+
+    // Processar arquivo Excel remontado
+    const workbook = xlsx.readFile(finalFilePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    let data = xlsx.utils.sheet_to_json(sheet);
+
+    console.log(`Dados lidos do Excel: ${data.length} linhas`);
+    console.log("Colunas disponíveis:", Object.keys(data[0] || {}));
+
+    // Filtrar apenas OSs de garantia baseado nos dados reais
+    const garantiaOS = data.filter(row => {
+      const statusOS = row["Status_OSv"] || "";
+      // Filtrar por Status_OSv = G, GO, GU (dados reais de garantia)
+      const isGarantia = statusOS === "G" || statusOS === "GO" || statusOS === "GU";
+      return isGarantia;
+    });
+
+    console.log(`OSs de garantia encontradas: ${garantiaOS.length}`);
+
+    if (garantiaOS.length === 0) {
+      // Limpar arquivos temporários
+      fs.unlinkSync(finalFilePath);
+      fs.rmSync(uploadDir, { recursive: true, force: true });
+      return res.status(400).json({ error: "Nenhuma OS de garantia encontrada no arquivo." });
+    }
+
+    // Mapear dados para o formato esperado pelo banco
+    const dadosFormatados = garantiaOS.map(row => {
+      // Converter data para formato ISO se necessário
+      let dataOS = null;
+      if (row["Data_OSv"]) {
+        try {
+          const date = new Date(row["Data_OSv"]);
+          if (!isNaN(date.getTime())) {
+            dataOS = date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+          }
+        } catch (e) {
+          console.warn("Erro ao converter data:", row["Data_OSv"]);
+        }
+      }
+
+      return {
+        // Mapeamento correto baseado nos dados reais
+        numero_os: row["NOrdem_OSv"] || null,
+        data_os: dataOS,
+        fabricante: row["Fabricante_Mot"] || null,
+        motor: row["Descricao_Mot"] || null,
+        modelo: row["ModeloVei_Osv"] || null,
+        observacoes: row["Obs_Osv"] || null,
+        defeito: row["ObsCorpo_OSv"] || null, // Esta é a coluna real de defeitos!
+        mecanico_montador: row["Mecanico"] || null,
+        cliente: row["Nome_Cli"] || null,
+        total_pecas: parseFloat(row["TOT. PÇ"]) || 0,
+        total_servicos: parseFloat(row["TOT. SERV."]) || 0,
+        total_geral: parseFloat(row["TOT"]) || 0,
+        tipo_os: row["Status_OSv"] || null,
+        // Campos adicionais que podem ser úteis
+        codigo_cliente: row["Codigo_Cli"] || null,
+        placa: row["Placa_Osv"] || null,
+        km: row["KM_Osv"] || null,
+        montador: row["Montador"] || null,
+        razao_social_cliente: row["RazaoSocial_Cli"] || null
+      };
+    });
+
+    // Inserir dados formatados na tabela temp_import_access
+    const { error } = await supabase.from("temp_import_access").insert(dadosFormatados);
+
+    // Limpar arquivos temporários
+    fs.unlinkSync(finalFilePath);
+    fs.rmSync(uploadDir, { recursive: true, force: true });
+
+    if (error) {
+      console.error("Erro ao inserir no Supabase:", error);
+      return res.status(500).json({ error: "Erro ao processar e salvar dados: " + error.message });
+    }
+
+    res.status(200).json({ 
+      message: "Arquivo processado e dados inseridos com sucesso!", 
+      count: dadosFormatados.length,
+      detalhes: {
+        total_linhas_excel: data.length,
+        oss_garantia_encontradas: garantiaOS.length,
+        oss_inseridas: dadosFormatados.length
+      }
+    });
+
+  } catch (error) {
+    console.error("Erro na finalização do upload:", error);
+    res.status(500).json({ error: "Erro interno do servidor: " + error.message });
+  }
+});
+
 // Nova rota para upload de arquivo Excel - CORRIGIDA PARA DADOS REAIS
 app.post("/upload-excel", upload.single("file"), async (req, res) => {
   try {
@@ -367,13 +543,6 @@ app.post("/api/defeitos-nao-mapeados", async (req, res) => {
   }
 });
 
-// Iniciar o servidor
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-
-
-
 // Middleware de tratamento de erros global
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -386,5 +555,9 @@ app.use((err, req, res, next) => {
   next();
 });
 
+// Iniciar o servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
 
 
