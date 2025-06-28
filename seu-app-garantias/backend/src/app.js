@@ -5,6 +5,7 @@ const { createClient } = require("@supabase/supabase-js");
 const multer = require("multer");
 const xlsx = require("xlsx");
 const fs = require("fs");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,7 +16,7 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error("Erro: Variáveis de ambiente do Supabase não configuradas.");
-  process.exit(1);
+
 }
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -25,31 +26,131 @@ app.use(cors()); // Habilita CORS para todas as rotas
 app.use(express.json({ limit: '1gb' })); // Habilita o parsing de JSON no corpo das requisições
 app.use(express.urlencoded({ limit: '1gb', extended: true })); // Habilita o parsing de URL-encoded no corpo das requisições
 
-// Configuração do Multer para upload de arquivos (apenas .xlsx, limite de 100MB)
-const upload = multer({
-  dest: "uploads/",
-  limits: {
-    fileSize: 1024 * 1024 * 1024, // 1GB
-    fieldSize: 1024 * 1024 * 1024,
-    fields: 50,
-    files: 10
-  },
-  fileFilter: (req, file, cb) => {
-    // Aceitar tanto por extensão quanto por MIME type
-    const isXlsx = file.originalname.toLowerCase().endsWith(".xlsx") || 
-                   file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    
-    if (isXlsx) {
-      cb(null, true);
-    } else {
-      cb(new Error("Apenas arquivos .xlsx são permitidos."));
-    }
-  },
+// Middleware de log para debug
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
 });
+
+// Configuração de armazenamento personalizada para Multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// Filtro de arquivo para aceitar apenas Excel
+const fileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel'
+  ];
+  
+  // Verificar por MIME type e extensão
+  const isExcelByMime = allowedMimes.includes(file.mimetype);
+  const isExcelByExt = file.originalname.toLowerCase().endsWith('.xlsx') || 
+                      file.originalname.toLowerCase().endsWith('.xls');
+  
+  if (isExcelByMime || isExcelByExt) {
+    cb(null, true);
+  } else {
+    cb(new Error('Apenas arquivos Excel (.xlsx, .xls) são permitidos'), false);
+  }
+};
+
+// Configuração do upload com limites e filtros melhorados
+const upload = multer({ 
+  storage: storage,
+  limits: { 
+    fileSize: 1024 * 1024 * 1024, // 1GB para arquivos Excel grandes
+    files: 1 // Apenas um arquivo por vez
+  },
+  fileFilter: fileFilter
+});
+
+// Middleware de tratamento de erro para upload
+const handleUploadError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
+        return res.status(400).json({
+          success: false,
+          error: 'Arquivo muito grande',
+          message: 'O arquivo deve ter no máximo 1GB'
+        });
+      case 'LIMIT_FILE_COUNT':
+        return res.status(400).json({
+          success: false,
+          error: 'Muitos arquivos',
+          message: 'Envie apenas um arquivo por vez'
+        });
+      case 'LIMIT_UNEXPECTED_FILE':
+        return res.status(400).json({
+          success: false,
+          error: 'Campo de arquivo inválido',
+          message: 'Use o campo correto para envio do arquivo'
+        });
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Erro no upload',
+          message: err.message
+        });
+    }
+  }
+  
+  if (err.message.includes('Apenas arquivos Excel')) {
+    return res.status(400).json({
+      success: false,
+      error: 'Tipo de arquivo inválido',
+      message: err.message
+    });
+  }
+  
+  next(err);
+};
+
+// Função para tentar recarregar schema em caso de erro
+async function executeWithCacheRetry(operation, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error.message.includes('schema cache') && attempt < maxRetries) {
+        console.log(`Tentativa ${attempt} falhou devido ao cache. Tentando novamente...`);
+        
+        // Tentar recarregar o schema
+        try {
+          await supabase.rpc('reload_schema_cache');
+        } catch (reloadError) {
+          console.log('Não foi possível recarregar cache automaticamente');
+        }
+        
+        // Aguardar um pouco antes de tentar novamente
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
 
 // Rota de teste
 app.get("/", (req, res) => {
   res.send("Backend do App de Garantias está funcionando!");
+});
+
+// Rota de teste para verificar se o servidor está funcionando
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Servidor funcionando!',
+    timestamp: new Date().toISOString(),
+    routes: ['/api/upload-excel', '/upload-excel', '/api/test']
+  });
 });
 
 // Rota de teste para diagnóstico de limites
@@ -236,40 +337,86 @@ app.post("/api/finalize-upload", async (req, res) => {
   }
 });
 
-// Nova rota para upload de arquivo Excel - CORRIGIDA PARA DADOS REAIS
-app.post("/upload-excel", upload.single("file"), async (req, res) => {
+// Nova rota de upload usando campo "excel" conforme recomendado
+app.post('/api/upload-excel', upload.single('excel'), handleUploadError, async (req, res) => {
   try {
+    console.log('=== PROCESSAMENTO COMPLETO ===');
+    
     if (!req.file) {
-      return res.status(400).json({ error: "Nenhum arquivo enviado ou tipo inválido." });
+      return res.status(400).json({
+        success: false,
+        error: 'Nenhum arquivo foi enviado'
+      });
     }
-
-    console.log("Arquivo recebido:", req.file.originalname, "MIME:", req.file.mimetype, "Tamanho:", req.file.size, "bytes");
-
-    const workbook = xlsx.readFile(req.file.path);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    let data = xlsx.utils.sheet_to_json(sheet);
-
-    console.log(`Dados lidos do Excel: ${data.length} linhas`);
-    console.log("Colunas disponíveis:", Object.keys(data[0] || {}));
-
-    // Filtrar apenas OSs de garantia baseado nos dados reais
-    const garantiaOS = data.filter(row => {
-      const statusOS = row["Status_OSv"] || "";
-      // Filtrar por Status_OSv = G, GO, GU (dados reais de garantia)
-      const isGarantia = statusOS === "G" || statusOS === "GO" || statusOS === "GU";
-      return isGarantia;
+    
+    // 1. Verificar arquivo
+    console.log('Arquivo recebido:', {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
     });
-
-    console.log(`OSs de garantia encontradas: ${garantiaOS.length}`);
-
-    if (garantiaOS.length === 0) {
+    
+    // 2. Ler workbook
+    const workbook = xlsx.readFile(req.file.path);
+    console.log('Abas disponíveis:', workbook.SheetNames);
+    
+    // 3. Analisar primeira aba
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    console.log('Range da planilha:', worksheet['!ref']);
+    
+    // 4. Usar método robusto que funcionou no diagnóstico
+    const rawData = xlsx.utils.sheet_to_json(worksheet, { 
+      header: 1, 
+      defval: '', 
+      blankrows: false, 
+      raw: false 
+    });
+    
+    console.log('Total de linhas lidas:', rawData.length);
+    
+    if (rawData.length < 2) {
       fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: "Nenhuma OS de garantia encontrada no arquivo." });
+      return res.status(400).json({
+        success: false,
+        error: 'Planilha deve ter cabeçalho + dados'
+      });
     }
-
-    // Mapear dados para o formato esperado pelo banco
-    const dadosFormatados = garantiaOS.map(row => {
+    
+    // 5. Processar cabeçalhos
+    const headers = rawData[0].map(h => String(h || '').trim());
+    console.log('Cabeçalhos processados:', headers.length);
+    
+    // 6. Filtrar dados de garantia
+    const garantiaData = [];
+    for (let i = 1; i < rawData.length; i++) {
+      const row = rawData[i];
+      const statusIndex = headers.indexOf('Status_OSv');
+      const statusValue = statusIndex >= 0 ? String(row[statusIndex] || '').toUpperCase() : '';
+      
+      if (['G', 'GO', 'GU'].includes(statusValue)) {
+        const rowObj = {};
+        headers.forEach((header, index) => {
+          if (header) {
+            rowObj[header] = row[index] || '';
+          }
+        });
+        garantiaData.push(rowObj);
+      }
+    }
+    
+    console.log('Dados de garantia filtrados:', garantiaData.length);
+    
+    if (garantiaData.length === 0) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: 'Nenhuma OS de garantia encontrada no arquivo'
+      });
+    }
+    
+    // 7. Mapear dados para o formato do banco
+    const dadosFormatados = garantiaData.map(row => {
       // Converter data para formato ISO se necessário
       let dataOS = null;
       if (row["Data_OSv"]) {
@@ -284,280 +431,97 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
       }
 
       return {
-        // Mapeamento correto baseado nos dados reais
-        numero_os: row["NOrdem_OSv"] || null,
+        // Apenas as colunas que existem na tabela temp_import_access
         data_os: dataOS,
+        numero_os: row["NOrdem_OSv"] || null,
         fabricante: row["Fabricante_Mot"] || null,
         motor: row["Descricao_Mot"] || null,
         modelo: row["ModeloVei_Osv"] || null,
         observacoes: row["Obs_Osv"] || null,
-        defeito: row["ObsCorpo_OSv"] || null, // Esta é a coluna real de defeitos!
+        defeito: row["ObsCorpo_OSv"] || null,
         mecanico_montador: row["Mecanico"] || null,
         cliente: row["Nome_Cli"] || null,
         total_pecas: parseFloat(row["TOT. PÇ"]) || 0,
         total_servicos: parseFloat(row["TOT. SERV."]) || 0,
         total_geral: parseFloat(row["TOT"]) || 0,
-        tipo_os: row["Status_OSv"] || null,
-        // Campos adicionais que podem ser úteis
-        codigo_cliente: row["Codigo_Cli"] || null,
-        placa: row["Placa_Osv"] || null,
-        km: row["KM_Osv"] || null,
-        montador: row["Montador"] || null,
-        razao_social_cliente: row["RazaoSocial_Cli"] || null
+        tipo_os: row["Status_OSv"] || null
       };
     });
+    
+    console.log('Dados formatados para inserção:', dadosFormatados.length);
+    
+    // 8. Inserir dados na tabela temp_import_access com retry
+    const insertOperation = async () => {
+      const { data, error } = await supabase
+        .from("temp_import_access")
+        .insert(dadosFormatados)
+        .select();
 
-    // Inserir dados formatados na tabela temp_import_access
-    const { error } = await supabase.from("temp_import_access").insert(dadosFormatados);
+      if (error) {
+        throw new Error(`Erro na inserção: ${error.message}`);
+      }
+      
+      return data;
+    };
 
-    // Remove arquivo temporário
-    fs.unlinkSync(req.file.path);
-
-    if (error) {
+    let insertedData;
+    try {
+      insertedData = await executeWithCacheRetry(insertOperation);
+      console.log('Dados inseridos com sucesso na tabela temporária');
+    } catch (error) {
       console.error("Erro ao inserir no Supabase:", error);
-      return res.status(500).json({ error: "Erro ao processar e salvar dados: " + error.message });
-    }
-
-    res.status(200).json({ 
-      message: "Arquivo processado e dados inseridos com sucesso!", 
-      count: dadosFormatados.length,
-      detalhes: {
-        total_linhas_excel: data.length,
-        oss_garantia_encontradas: garantiaOS.length,
-        oss_inseridas: dadosFormatados.length
+      
+      // Remove arquivo temporário
+      fs.unlinkSync(req.file.path);
+      
+      // Tratamento específico para erros de schema cache
+      if (error.message.includes('schema cache')) {
+        return res.status(503).json({
+          success: false,
+          error: 'Erro temporário do banco de dados',
+          message: 'Tente novamente em alguns segundos.'
+        });
       }
-    });
-  } catch (error) {
-    console.error("Erro no upload:", error);
-    if (req.file) fs.unlinkSync(req.file.path);
-    res.status(500).json({ error: "Erro interno do servidor: " + error.message });
-  }
-});
-
-// Rota para consultar dados da tabela temporária
-app.get("/temp-import-access", async (req, res) => {
-  try {
-    const { data, error } = await supabase.from("temp_import_access").select("*");
-    if (error) throw error;
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Rota para processar dados da temp_import_access e movê-los para ordens_servico
-app.post("/process-data", async (req, res) => {
-  try {
-    // 1. Buscar dados da temp_import_access
-    const { data: tempData, error: fetchError } = await supabase
-      .from("temp_import_access")
-      .select("*");
-
-    if (fetchError) throw fetchError;
-
-    if (!tempData || tempData.length === 0) {
-      return res.status(400).json({ error: "Nenhum dado encontrado na tabela temporária." });
+      
+      return res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor',
+        message: error.message
+      });
     }
-
-    // Buscar mapeamentos de defeitos
-    const { data: mapeamentos, error: mapError } = await supabase
-      .from("mapeamento_defeitos")
-      .select("*");
-
-    if (mapError) throw mapError;
-
-    const unmappedDefects = new Set();
-
-    // Processar cada registro
-    const processedData = tempData.map(row => {
-      let grupo_id = null;
-      let subgrupo_id = null;
-      let subsubgrupo_id = null;
-
-      // Tentar mapear o defeito baseado na coluna ObsCorpo_OSv (defeito real)
-      if (row.defeito) {
-        const mapeamento = mapeamentos.find(m => 
-          row.defeito.toLowerCase().includes(m.descricao_original.toLowerCase())
-        );
-        
-        if (mapeamento) {
-          grupo_id = mapeamento.grupo_id;
-          subgrupo_id = mapeamento.subgrupo_id;
-          subsubgrupo_id = mapeamento.subsubgrupo_id;
-        } else {
-          unmappedDefects.add(row.defeito);
-        }
-      }
-
-      return {
-        numero_os: row.numero_os,
-        data_os: row.data_os,
-        fabricante: row.fabricante,
-        motor: row.motor,
-        modelo: row.modelo,
-        observacoes: row.observacoes,
-        defeito: row.defeito,
-        mecanico_montador: row.mecanico_montador,
-        cliente: row.cliente,
-        total_pecas: parseFloat(row.total_pecas) || 0,
-        total_servicos: parseFloat(row.total_servicos) || 0,
-        total_geral: parseFloat(row.total_geral) || 0,
-        grupo_id,
-        subgrupo_id,
-        subsubgrupo_id,
-        tipo_os: row.tipo_os,
-        // Campos adicionais
-        codigo_cliente: row.codigo_cliente,
-        placa: row.placa,
-        km: row.km,
-        montador: row.montador,
-        razao_social_cliente: row.razao_social_cliente
-      };
-    });
-
-    // 2. Inserir/atualizar dados na tabela ordens_servico usando upsert
-    const { error: upsertError } = await supabase
-      .from("ordens_servico")
-      .upsert(processedData, { onConflict: "numero_os" });
-
-    if (upsertError) throw upsertError;
-
-    // 3. Limpar temp_import_access após o processamento
-    const { error: deleteError } = await supabase
-      .from("temp_import_access")
-      .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000");
-
-    if (deleteError) console.error("Erro ao limpar temp_import_access:", deleteError.message);
-
+    
+    // 9. Limpar arquivo temporário
+    fs.unlinkSync(req.file.path);
+    
     res.status(200).json({
-      message: "Dados processados e movidos para ordens_servico com sucesso!",
-      count: processedData.length,
-      unmappedDefects: Array.from(unmappedDefects),
+      success: true,
+      message: 'Arquivo processado e dados inseridos com sucesso!',
+      count: insertedData.length
     });
+
   } catch (error) {
-    console.error("Erro no processamento:", error);
-    res.status(500).json({ error: "Erro interno do servidor." });
-  }
-});
-
-// 1. Buscar Ordens de Serviço com Filtros e Paginação
-app.get("/api/ordens-servico", async (req, res) => {
-  try {
-    const { tipo_os, mecanico, cliente, data_inicio, data_fim, limit = 20, offset = 0 } = req.query;
-
-    let query = supabase.from("ordens_servico").select("*", { count: "exact" });
-
-    // Aplicar filtros
-    if (tipo_os) query = query.eq("tipo_os", tipo_os);
-    if (mecanico) query = query.ilike("mecanico_montador", `%${mecanico}%`);
-    if (cliente) query = query.ilike("cliente", `%${cliente}%`);
-    if (data_inicio) query = query.gte("data_os", data_inicio);
-    if (data_fim) query = query.lte("data_os", data_fim);
-
-    // Aplicar paginação
-    query = query.range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-
-    res.status(200).json({ data, count });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 2. Buscar Grupos de Defeito
-app.get("/api/grupos-defeito", async (req, res) => {
-  try {
-    const { data, error } = await supabase.from("grupos_defeito").select("*");
-    if (error) throw error;
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 3. Buscar Subgrupos de Defeito
-app.get("/api/subgrupos-defeito", async (req, res) => {
-  try {
-    const { grupo_id } = req.query;
-    let query = supabase.from("subgrupos_defeito").select("*");
-    if (grupo_id) query = query.eq("grupo_id", grupo_id);
-    const { data, error } = await query;
-    if (error) throw error;
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 4. Buscar Subsubgrupos de Defeito
-app.get("/api/subsubgrupos-defeito", async (req, res) => {
-  try {
-    const { subgrupo_id } = req.query;
-    let query = supabase.from("subsubgrupos_defeito").select("*");
-    if (subgrupo_id) query = query.eq("subgrupo_id", subgrupo_id);
-    const { data, error } = await query;
-    if (error) throw error;
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 5. Buscar Mapeamento de Defeitos
-app.get("/api/mapeamento-defeitos", async (req, res) => {
-  try {
-    const { data, error } = await supabase.from("mapeamento_defeitos").select("*");
-    if (error) throw error;
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 6. Salvar defeitos não mapeados
-app.post("/api/defeitos-nao-mapeados", async (req, res) => {
-  try {
-    const { defeitos } = req.body;
-    if (!Array.isArray(defeitos) || defeitos.length === 0) {
-      return res.status(400).json({ error: "Envie um array de defeitos não mapeados." });
-    }
-
-    // Remove duplicados
-    const uniqueDefeitos = [...new Set(defeitos.map(d => String(d).toLowerCase().trim()))];
-    
-    // Insere defeitos não mapeados
-    const inserts = uniqueDefeitos.map(descricao => ({ descricao }));
-    const { error } = await supabase.from("defeitos_nao_mapeados").upsert(inserts, { onConflict: "descricao" });
-    
-    if (error) throw error;
-    
-    res.status(200).json({ 
-      message: "Defeitos não mapeados salvos com sucesso!", 
-      count: uniqueDefeitos.length 
+    console.error('Erro no upload:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      message: error.message
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 
 // Middleware de tratamento de erros global
 app.use((err, req, res, next) => {
+  console.error("Erro global capturado:", err);
   if (err instanceof multer.MulterError) {
-    console.error("Multer Error:", err.code, err.message);
-    return res.status(500).json({ error: `Erro de upload: ${err.message}` });
-  } else if (err) {
-    console.error("Erro geral do servidor:", err.message, err.stack);
-    return res.status(500).json({ error: "Erro interno do servidor." });
+    return res.status(400).json({ error: err.message });
   }
-  next();
+  res.status(500).json({ error: "Erro interno do servidor." });
 });
 
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
 
 

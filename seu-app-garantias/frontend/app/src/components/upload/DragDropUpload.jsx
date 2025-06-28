@@ -3,7 +3,7 @@ import { Upload, FileSpreadsheet, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 
-const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx' }) => {
+const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx,.xls' }) => {
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -49,8 +49,9 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
     ]
     
     if (!file.name.toLowerCase().endsWith('.xlsx') && 
+        !file.name.toLowerCase().endsWith('.xls') &&
         !allowedTypes.includes(file.type)) {
-      alert('Por favor, selecione apenas arquivos Excel (.xlsx).\\nTipos aceitos: .xlsx')
+      alert('Por favor, selecione apenas arquivos Excel (.xlsx, .xls).\nTipos aceitos: .xlsx, .xls')
       return
     }
 
@@ -58,7 +59,7 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
     const maxSize = 100 * 1024 * 1024 // 100MB em bytes
     if (file.size > maxSize) {
       const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
-      alert(`O arquivo deve ter no máximo 100MB.\\nTamanho atual: ${fileSizeMB}MB`)
+      alert(`O arquivo deve ter no máximo 100MB.\nTamanho atual: ${fileSizeMB}MB`)
       return
     }
 
@@ -273,4 +274,6 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
 }
 
 export default DragDropUpload
+
+
 

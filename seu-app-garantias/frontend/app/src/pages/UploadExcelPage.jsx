@@ -60,9 +60,9 @@ const UploadExcelPage = () => {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Instruções:</strong> O arquivo deve estar no formato .xlsx e conter as colunas: 
+          <strong>Instruções:</strong> O arquivo deve estar no formato .xlsx ou .xls e conter as colunas: 
           DATA_OS, NUMERO_OS, FABRICANTE, MOTOR, MODELO, OBSERVACOES, DEFEITO, MECANICO_MONTADOR, 
-          CLIENTE, TOTAL_PECAS, TOTAL_SERVICOS, TOTAL_GERAL, TIPO_OS.
+          CLIENTE, TOTAL_PECAS, TOTAL_SERVICOS, TOTAL_GERAL, TIPO_OS. Tamanho máximo: 15MB.
         </AlertDescription>
       </Alert>
 

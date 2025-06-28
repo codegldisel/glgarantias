@@ -1,5 +1,5 @@
 // Configuração da API para conectar com o backend
-const API_BASE_URL = process.env.VITE_API_BASE_URL || 'https://3000-i4zobsqjb96cawbu6o03s-58323dc2.manusvm.computer';
+const API_BASE_URL = process.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 class ApiService {
   constructor() {
@@ -102,7 +102,7 @@ class ApiService {
   // Upload de arquivos
   async uploadFile(endpoint, file, additionalData = {}) {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('excel', file); // Usar campo 'excel' conforme recomendado
     
     // Adicionar dados adicionais ao FormData
     Object.keys(additionalData).forEach(key => {
@@ -135,9 +135,21 @@ class ApiService {
     });
   }
 
-  // Upload de Excel
+  // Upload de Excel - usando nova rota com campo 'excel'
   async uploadExcel(file) {
-    return this.uploadFile('/upload-excel', file);
+    return this.uploadFile('/api/upload-excel', file);
+  }
+
+  // Upload de Excel - rota original para compatibilidade
+  async uploadExcelLegacy(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.request('/upload-excel', {
+      method: 'POST',
+      body: formData,
+      headers: {}, // Remover Content-Type para FormData
+    });
   }
 
   // Processamento de dados
