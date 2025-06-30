@@ -1,5 +1,5 @@
 // Configuração da API para conectar com o backend
-const API_BASE_URL = process.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.VITE_API_BASE_URL || '';
 
 class ApiService {
   constructor() {
@@ -27,8 +27,8 @@ class ApiService {
         ...options.headers,
       },
       ...options,
-      // Adicionar timeout de 30 segundos
-      signal: AbortSignal.timeout(30000),
+      // Adicionar timeout de 5 minutos para uploads grandes
+      signal: AbortSignal.timeout(300000),
     };
 
     // Aplicar interceptors de requisição
@@ -102,7 +102,7 @@ class ApiService {
   // Upload de arquivos
   async uploadFile(endpoint, file, additionalData = {}) {
     const formData = new FormData();
-    formData.append('excel', file); // Usar campo 'excel' conforme recomendado
+    formData.append('excel', file);
     
     // Adicionar dados adicionais ao FormData
     Object.keys(additionalData).forEach(key => {
@@ -118,116 +118,29 @@ class ApiService {
 
   // === MÉTODOS ESPECÍFICOS DA APLICAÇÃO ===
 
+  // Upload de Excel - usando nova rota
+  async uploadExcel(file) {
+    return this.uploadFile('/api/upload-excel', file);
+  }
+
+  // Estatísticas
+  async getEstatisticas() {
+    return this.get('/api/estatisticas');
+  }
+
+  // Defeitos não mapeados
+  async getDefeitosNaoMapeados() {
+    return this.get('/api/defeitos-nao-mapeados');
+  }
+
   // Ordens de Serviço
   async getOrdensServico(params = {}) {
     return this.get('/api/ordens-servico', params);
   }
 
-  async getOrdensDoMesAtual() {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    return this.getOrdensServico({
-      data_inicio: startOfMonth.toISOString().split('T')[0],
-      data_fim: endOfMonth.toISOString().split('T')[0],
-      limit: 1000 // Buscar todas do mês
-    });
-  }
-
-  // Upload de Excel - usando nova rota com campo 'excel'
-  async uploadExcel(file) {
-    return this.uploadFile('/api/upload-excel', file);
-  }
-
-  // Upload de Excel - rota original para compatibilidade
-  async uploadExcelLegacy(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    return this.request('/upload-excel', {
-      method: 'POST',
-      body: formData,
-      headers: {}, // Remover Content-Type para FormData
-    });
-  }
-
-  // Processamento de dados
-  async processarDados() {
-    return this.post('/process-data');
-  }
-
-  // Dados temporários
-  async getTempImportAccess() {
-    return this.get('/temp-import-access');
-  }
-
-  // Grupos de Defeito
-  async getGruposDefeito() {
-    return this.get('/api/grupos-defeito');
-  }
-
-  async getSubgruposDefeito(grupoId = null) {
-    const params = grupoId ? { grupo_id: grupoId } : {};
-    return this.get('/api/subgrupos-defeito', params);
-  }
-
-  async getSubsubgruposDefeito(subgrupoId = null) {
-    const params = subgrupoId ? { subgrupo_id: subgrupoId } : {};
-    return this.get('/api/subsubgrupos-defeito', params);
-  }
-
-  // Mapeamento de Defeitos
-  async getMapeamentoDefeitos() {
-    return this.get('/api/mapeamento-defeitos');
-  }
-
-  // Defeitos não mapeados
-  async salvarDefeitosNaoMapeados(defeitos) {
-    return this.post('/api/defeitos-nao-mapeados', { defeitos });
-  }
-
-  // === MÉTODOS DE ANÁLISE E RELATÓRIOS ===
-
-  // Análises por período
-  async getAnalisesPorPeriodo(dataInicio, dataFim) {
-    return this.getOrdensServico({
-      data_inicio: dataInicio,
-      data_fim: dataFim,
-      limit: 1000
-    });
-  }
-
-  // Análises por fabricante
-  async getAnalisesPorFabricante(fabricante, dataInicio = null, dataFim = null) {
-    const params = { fabricante };
-    if (dataInicio) params.data_inicio = dataInicio;
-    if (dataFim) params.data_fim = dataFim;
-    return this.getOrdensServico(params);
-  }
-
-  // Análises por mecânico
-  async getAnalisesPorMecanico(mecanico, dataInicio = null, dataFim = null) {
-    const params = { mecanico };
-    if (dataInicio) params.data_inicio = dataInicio;
-    if (dataFim) params.data_fim = dataFim;
-    return this.getOrdensServico(params);
-  }
-
-  // Estatísticas gerais
-  async getEstatisticasGerais() {
-    const response = await this.getOrdensServico({ limit: 10000 });
-    const ordens = response.data || [];
-    
-    return {
-      totalOS: ordens.length,
-      totalPecas: ordens.reduce((sum, os) => sum + (parseFloat(os.total_pecas) || 0), 0),
-      totalServicos: ordens.reduce((sum, os) => sum + (parseFloat(os.total_servicos) || 0), 0),
-      totalGeral: ordens.reduce((sum, os) => sum + (parseFloat(os.total_geral) || 0), 0),
-      fabricantes: [...new Set(ordens.map(os => os.fabricante).filter(Boolean))],
-      mecanicos: [...new Set(ordens.map(os => os.mecanico_montador).filter(Boolean))],
-      defeitos: [...new Set(ordens.map(os => os.defeito).filter(Boolean))]
-    };
+  // Teste de conexão
+  async testarConexao() {
+    return this.get('/api/test');
   }
 
   // === MÉTODOS DE VALIDAÇÃO ===
@@ -235,18 +148,8 @@ class ApiService {
   // Verificar conexão com o backend
   async verificarConexao() {
     try {
-      const response = await fetch(this.API_BASE_URL);
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  // Verificar saúde da API
-  async verificarSaudeAPI() {
-    try {
-      await this.get('/api/ordens-servico', { limit: 1 });
-      return { status: 'ok', message: 'API funcionando corretamente' };
+      const response = await this.testarConexao();
+      return { status: 'ok', data: response };
     } catch (error) {
       return { status: 'error', message: error.message };
     }
@@ -260,7 +163,7 @@ const apiService = new ApiService();
 apiService.addRequestInterceptor(async (config) => {
   // Log de requisições em desenvolvimento
   if (process.env.NODE_ENV === 'development') {
-    console.log('API Request:', config);
+    console.log('API Request:', config.method, config.url || config);
   }
   return config;
 });

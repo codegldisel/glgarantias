@@ -1,13 +1,16 @@
 import { useState, useRef } from 'react'
-import { Upload, FileSpreadsheet, X, Loader2 } from 'lucide-react'
+import { Upload, FileSpreadsheet, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx,.xls' }) => {
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState(null)
+  const [uploadError, setUploadError] = useState(null)
   const fileInputRef = useRef(null)
 
   const handleDragOver = (e) => {
@@ -55,85 +58,54 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
       return
     }
 
-    // Validar tamanho (máximo 100MB)
-    const maxSize = 100 * 1024 * 1024 // 100MB em bytes
+    // Validar tamanho (máximo 1GB - conforme backend)
+    const maxSize = 1024 * 1024 * 1024 // 1GB em bytes
     if (file.size > maxSize) {
       const fileSizeMB = (file.size / 1024 / 1024).toFixed(2)
-      alert(`O arquivo deve ter no máximo 100MB.\nTamanho atual: ${fileSizeMB}MB`)
+      alert(`O arquivo deve ter no máximo 1GB.\nTamanho atual: ${fileSizeMB}MB`)
       return
     }
 
     setSelectedFile(file)
+    setUploadResult(null)
+    setUploadError(null)
     onFileSelect(file)
   }
 
-  const uploadFileInChunks = async (file) => {
-    const CHUNK_SIZE = 1024 * 1024 // 1MB por chunk
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
-    const uploadId = Date.now().toString() + Math.random().toString(36).substr(2, 9)
-
+  const uploadFile = async (file) => {
     setIsUploading(true)
     setUploadProgress(0)
+    setUploadResult(null)
+    setUploadError(null)
 
     try {
-      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const start = chunkIndex * CHUNK_SIZE
-        const end = Math.min(start + CHUNK_SIZE, file.size)
-        const chunk = file.slice(start, end)
+      const formData = new FormData()
+      formData.append('excel', file)
 
-        const formData = new FormData()
-        formData.append('chunk', chunk)
-        formData.append('chunkIndex', chunkIndex.toString())
-        formData.append('totalChunks', totalChunks.toString())
-        formData.append('uploadId', uploadId)
-        formData.append('fileName', file.name)
-        formData.append('fileSize', file.size.toString())
-
-        const response = await fetch('https://3000-i4zobsqjb96cawbu6o03s-58323dc2.manusvm.computer/api/upload-chunk', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!response.ok) {
-          throw new Error(`Erro no upload do chunk ${chunkIndex + 1}`)
-        }
-
-        const progress = ((chunkIndex + 1) / totalChunks) * 100
-        setUploadProgress(progress)
-      }
-
-      // Finalizar upload - montar arquivo completo
-      const finalizeResponse = await fetch('https://3000-i4zobsqjb96cawbu6o03s-58323dc2.manusvm.computer/api/finalize-upload', {
+      const response = await fetch('/api/upload-excel', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uploadId,
-          fileName: file.name,
-          totalChunks,
-        }),
+        body: formData,
       })
 
-      if (!finalizeResponse.ok) {
-        throw new Error('Erro ao finalizar upload')
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || 'Erro no upload')
       }
 
-      const result = await finalizeResponse.json()
+      setUploadResult(result)
+      setUploadProgress(100)
       
       // Chamar callback de sucesso
       if (onFileSelect) {
         onFileSelect(result)
       }
-
-      alert('Upload concluído com sucesso!')
       
     } catch (error) {
       console.error('Erro no upload:', error)
-      alert(`Erro no upload: ${error.message}`)
+      setUploadError(error.message)
     } finally {
       setIsUploading(false)
-      setUploadProgress(0)
     }
   }
 
@@ -141,6 +113,8 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
     setSelectedFile(null)
     setUploadProgress(0)
     setIsUploading(false)
+    setUploadResult(null)
+    setUploadError(null)
     onFileSelect(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -155,7 +129,7 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
 
   const handleUpload = () => {
     if (selectedFile && !isUploading) {
-      uploadFileInChunks(selectedFile)
+      uploadFile(selectedFile)
     }
   }
 
@@ -186,28 +160,66 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
         {isUploading && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span>Enviando arquivo...</span>
-              <span>{Math.round(uploadProgress)}%</span>
+              <span>Processando arquivo...</span>
+              <span>Aguarde...</span>
             </div>
-            <Progress value={uploadProgress} className="w-full" />
+            <Progress value={50} className="w-full animate-pulse" />
           </div>
+        )}
+
+        {uploadResult && (
+          <Alert className="border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              <div className="space-y-1">
+                <p className="font-medium">Upload concluído com sucesso!</p>
+                <p className="text-sm">
+                  {uploadResult.count} ordens de serviço de garantia foram processadas.
+                </p>
+                {uploadResult.detalhes && (
+                  <div className="text-xs space-y-1 mt-2">
+                    <p>• Total de linhas no Excel: {uploadResult.detalhes.total_linhas_excel}</p>
+                    <p>• OSs de garantia encontradas: {uploadResult.detalhes.oss_garantia_encontradas}</p>
+                    <p>• OSs inseridas no banco: {uploadResult.detalhes.oss_inseridas}</p>
+                  </div>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {uploadError && (
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <div className="space-y-1">
+                <p className="font-medium">Erro no upload</p>
+                <p className="text-sm">{uploadError}</p>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         <div className="flex gap-2">
           <Button 
             onClick={handleUpload}
-            disabled={disabled || isUploading}
+            disabled={disabled || isUploading || uploadResult}
             className="flex-1"
           >
             {isUploading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Enviando...
+                Processando...
+              </>
+            ) : uploadResult ? (
+              <>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Concluído
               </>
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Fazer Upload
+                Processar Arquivo
               </>
             )}
           </Button>
@@ -253,10 +265,10 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
             {isDragOver ? 'Solte o arquivo aqui' : 'Selecione um arquivo Excel'}
           </h3>
           <p className="text-muted-foreground mb-4">
-            Arraste e solte ou clique para selecionar um arquivo .xlsx
+            Arraste e solte ou clique para selecionar um arquivo .xlsx com dados de garantia
           </p>
           <p className="text-xs text-muted-foreground">
-            Tamanho máximo: 100MB
+            Tamanho máximo: 1GB • Procure pela aba "Tabela" no arquivo
           </p>
         </div>
         
@@ -274,6 +286,4 @@ const DragDropUpload = ({ onFileSelect, disabled = false, acceptedTypes = '.xlsx
 }
 
 export default DragDropUpload
-
-
 
