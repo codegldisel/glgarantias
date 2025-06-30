@@ -255,7 +255,7 @@ app.post('/api/upload-excel', upload.single('excel'), handleUploadError, async (
       }
 
       return {
-        // Apenas as colunas que existem na tabela temp_import_access
+        // Usar os nomes corretos das colunas da tabela temp_import_access
         data_os: dataOS,
         numero_os: row["NOrdem_OSv"] || null,
         fabricante: row["Fabricante_Mot"] || null,
@@ -527,13 +527,7 @@ app.post("/upload-excel", upload.single("file"), handleUploadError, async (req, 
         total_pecas: parseFloat(row["TOT. PÇ"]) || 0,
         total_servicos: parseFloat(row["TOT. SERV."]) || 0,
         total_geral: parseFloat(row["TOT"]) || 0,
-        tipo_os: row["Status_OSv"] || null,
-        // Campos adicionais que podem ser úteis
-        codigo_cliente: row["Codigo_Cli"] || null,
-        placa: row["Placa_Osv"] || null,
-        km: row["KM_Osv"] || null,
-        montador: row["Montador"] || null,
-        razao_social_cliente: row["RazaoSocial_Cli"] || null
+        tipo_os: row["Status_OSv"] || null
       };
     });
 
