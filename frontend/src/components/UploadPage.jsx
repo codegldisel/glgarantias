@@ -59,18 +59,33 @@ const UploadPage = () => {
     setUploadProgress(0)
     setUploadStatus(null)
 
-    // Simular upload com progresso
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          setUploading(false)
-          setUploadStatus('success')
-          return 100
-        }
-        return prev + 10
+    try {
+      const formData = new FormData()
+      formData.append('planilha', file)
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+      
+      const response = await fetch(`${apiUrl}/api/upload`, {
+        method: 'POST',
+        body: formData
       })
-    }, 200)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro no upload')
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
+      setUploadStatus('success')
+      console.log('Upload realizado com sucesso:', result)
+
+    } catch (error) {
+      console.error('Erro no upload:', error)
+      setUploadStatus('error')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const removeFile = () => {

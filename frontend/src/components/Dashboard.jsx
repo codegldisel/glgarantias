@@ -8,25 +8,42 @@ import { AlertTriangle, RefreshCw, FileText, TrendingUp, TrendingDown } from 'lu
 const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [stats, setStats] = useState(null)
+  const [charts, setCharts] = useState(null)
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(false)
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+      
+      // Buscar estatísticas
+      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats`)
+      if (!statsResponse.ok) throw new Error('Erro ao buscar estatísticas')
+      const statsData = await statsResponse.json()
+      setStats(statsData)
+
+      // Buscar dados dos gráficos
+      const chartsResponse = await fetch(`${apiUrl}/api/dashboard/charts`)
+      if (!chartsResponse.ok) throw new Error('Erro ao buscar dados dos gráficos')
+      const chartsData = await chartsResponse.json()
+      setCharts(chartsData)
+
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // Simular carregamento de dados
-    const timer = setTimeout(() => {
-      setLoading(false)
-      // Simular erro de conexão como na referência
-      setError(true)
-    }, 1000)
-
-    return () => clearTimeout(timer)
+    fetchData()
   }, [])
 
   const handleRetry = () => {
-    setLoading(true)
-    setError(false)
-    setTimeout(() => {
-      setLoading(false)
-      setError(true)
-    }, 1000)
+    fetchData()
   }
 
   if (loading) {
@@ -86,8 +103,12 @@ const Dashboard = () => {
               <p className="text-sm font-medium text-gray-600">Total de OS</p>
               <FileText className="h-4 w-4 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">---</p>
-            <p className="text-xs text-gray-500 mt-1">Dados indisponíveis</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats ? stats.totalOS.toLocaleString() : '---'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats ? 'Ordens de serviço' : 'Dados indisponíveis'}
+            </p>
           </CardContent>
         </Card>
 
@@ -97,8 +118,12 @@ const Dashboard = () => {
               <p className="text-sm font-medium text-gray-600">Total Peças</p>
               <TrendingUp className="h-4 w-4 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">---</p>
-            <p className="text-xs text-gray-500 mt-1">Dados indisponíveis</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats ? `R$ ${stats.totalPecas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats ? 'Valor total em peças' : 'Dados indisponíveis'}
+            </p>
           </CardContent>
         </Card>
 
@@ -108,8 +133,12 @@ const Dashboard = () => {
               <p className="text-sm font-medium text-gray-600">Total Serviços</p>
               <TrendingUp className="h-4 w-4 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">---</p>
-            <p className="text-xs text-gray-500 mt-1">Dados indisponíveis</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats ? `R$ ${stats.totalServicos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats ? 'Valor total em serviços' : 'Dados indisponíveis'}
+            </p>
           </CardContent>
         </Card>
 
@@ -119,8 +148,12 @@ const Dashboard = () => {
               <p className="text-sm font-medium text-gray-600">Total Geral</p>
               <TrendingUp className="h-4 w-4 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">---</p>
-            <p className="text-xs text-gray-500 mt-1">Dados indisponíveis</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats ? `R$ ${stats.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats ? 'Valor total geral' : 'Dados indisponíveis'}
+            </p>
           </CardContent>
         </Card>
 
@@ -130,8 +163,12 @@ const Dashboard = () => {
               <p className="text-sm font-medium text-gray-600">Mecânicos Ativos</p>
               <TrendingUp className="h-4 w-4 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">---</p>
-            <p className="text-xs text-gray-500 mt-1">Dados indisponíveis</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats ? stats.totalMecanicos : '---'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats ? 'Mecânicos únicos' : 'Dados indisponíveis'}
+            </p>
           </CardContent>
         </Card>
 
@@ -141,8 +178,12 @@ const Dashboard = () => {
               <p className="text-sm font-medium text-gray-600">Tipos de Defeitos</p>
               <TrendingUp className="h-4 w-4 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">---</p>
-            <p className="text-xs text-gray-500 mt-1">Dados indisponíveis</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats ? stats.totalTiposDefeitos : '---'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats ? 'Categorias de defeitos' : 'Dados indisponíveis'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -162,27 +203,51 @@ const Dashboard = () => {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-gray-600" />
-            <CardTitle className="text-lg font-semibold">Ordens de Serviço do Mês</CardTitle>
+            <CardTitle className="text-lg font-semibold">Defeitos por Categoria</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-            <div className="text-center">
-              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Erro ao carregar dados</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Erro ao carregar dados. Verifique se o backend está rodando.
-              </p>
-              <Button 
-                variant="outline" 
-                onClick={handleRetry}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Tentar novamente
-              </Button>
+          {charts && charts.defeitosPorGrupo && charts.defeitosPorGrupo.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={charts.defeitosPorGrupo}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="nome" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="valor" fill="#374151" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+              <div className="text-center">
+                {error ? (
+                  <>
+                    <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Erro ao carregar dados</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Erro ao carregar dados. Verifique se o backend está rodando.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleRetry}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Tentar novamente
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum dado encontrado</h3>
+                    <p className="text-sm text-gray-600">
+                      Faça o upload de uma planilha para visualizar os gráficos.
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

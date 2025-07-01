@@ -9,6 +9,10 @@ const ExcelService = require('./services/excelService');
 const NLPService = require('./services/nlpService');
 const supabase = require('./config/supabase');
 
+// Importar rotas
+const dashboardRoutes = require('./routes/dashboard');
+const ordensRoutes = require('./routes/ordens');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -16,6 +20,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rotas
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/ordens', ordensRoutes);
 
 // Configuração do multer para upload de arquivos
 const storage = multer.diskStorage({

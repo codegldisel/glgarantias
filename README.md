@@ -1,144 +1,185 @@
-# Sistema de Análise de Garantias de Motores
+# Sistema de Análise de Garantias GLúcio
 
-Este projeto automatiza o processo de análise de garantias de motores, processando planilhas Excel e classificando defeitos usando Processamento de Linguagem Natural (PLN).
+Sistema web para análise automatizada de garantias de motores, desenvolvido para a Retífica de Motores GLúcio. O sistema processa planilhas Excel, classifica defeitos usando PLN (Processamento de Linguagem Natural) e fornece análises detalhadas através de um dashboard moderno.
 
-## 🚀 Tecnologias
+## 🚀 Funcionalidades
 
-- **Backend**: Node.js + Express
-- **Frontend**: React + Vite
-- **Banco de Dados**: Supabase (PostgreSQL)
-- **Processamento**: XLSX para leitura de Excel
-- **PLN**: Classificação customizada de defeitos
+- **Upload de Planilhas Excel**: Processamento automático de planilhas GLú-Garantias.xlsx
+- **Classificação Automática de Defeitos**: Sistema de PLN que categoriza defeitos em grupos, subgrupos e subsubgrupos
+- **Dashboard Interativo**: Visualização de estatísticas e gráficos em tempo real
+- **Análise de Dados**: Filtros avançados por status, defeito, mecânico, período
+- **Interface Moderna**: Design responsivo e profissional
 
-## 📋 Funcionalidades
+## 🏗️ Arquitetura
 
-- Upload e processamento de planilhas Excel grandes (>10MB)
-- Classificação automática de defeitos em hierarquia (Grupo > Subgrupo > Subsubgrupo)
-- Dashboard com análises mensais
-- Visualização de dados brutos com filtros
-- Exportação de relatórios
-- Gestão de mecânicos e motores
+### Backend (Node.js/Express)
+- **API RESTful** para processamento de dados
+- **Supabase** como banco de dados PostgreSQL
+- **Serviços especializados**:
+  - `ExcelService`: Leitura e processamento de planilhas
+  - `NLPService`: Classificação inteligente de defeitos
+- **Rotas organizadas** para dashboard e ordens de serviço
 
-## 🛠️ Configuração
+### Frontend (React + Vite)
+- **Interface moderna** com Tailwind CSS e shadcn/ui
+- **Componentes reutilizáveis** e responsivos
+- **Gráficos interativos** com Recharts
+- **Upload drag & drop** para planilhas
 
-### 1. Configuração do Supabase
+## 📋 Pré-requisitos
 
-1. Crie um projeto no [Supabase](https://supabase.com)
-2. Execute o script `database/schema.sql` no SQL Editor do Supabase
-3. Copie a URL e a chave anônima do projeto
+- Node.js 20.x ou superior
+- npm ou pnpm
+- Acesso à internet (para conexão com Supabase)
 
-### 2. Configuração do Backend
+## 🚀 Instalação e Execução
 
+### 1. Clone o repositório
 ```bash
-# Instalar dependências
-npm install
-
-# Configurar variáveis de ambiente
-cp .env.example .env
-# Edite o arquivo .env com suas credenciais do Supabase
-
-# Iniciar servidor de desenvolvimento
-npm run dev
+git clone https://github.com/codegldisel/glgarantias.git
+cd glgarantias
 ```
 
-### 3. Estrutura do Projeto
+### 2. Configure e execute o Backend
+```bash
+cd backend
+npm install
+npm start
+```
+O backend estará rodando em `http://localhost:3000`
+
+### 3. Configure e execute o Frontend
+```bash
+cd ../frontend
+npm install -g pnpm  # Se não tiver pnpm instalado
+pnpm install
+pnpm dev
+```
+O frontend estará rodando em `http://localhost:5173`
+
+## 🔧 Configuração
+
+### Variáveis de Ambiente
+
+O projeto já vem configurado com as credenciais do Supabase. Os arquivos `.env` estão incluídos para facilitar a execução:
+
+**Backend (.env)**:
+```env
+SUPABASE_URL=https://yvkdquddiwnnzydasfbi.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+PORT=3000
+NODE_ENV=development
+```
+
+**Frontend (.env.development)**:
+```env
+VITE_API_URL=http://localhost:3000
+```
+
+## 📊 Estrutura do Projeto
 
 ```
 glgarantias/
-├── src/
-│   ├── app.js              # Servidor Express principal
-│   ├── config/
-│   │   └── supabase.js     # Configuração do Supabase
-│   ├── controllers/        # Controladores das rotas
-│   ├── services/
-│   │   ├── excelService.js # Serviço de leitura de Excel
-│   │   └── nlpService.js   # Serviço de classificação PLN
-│   └── utils/              # Utilitários
-├── database/
-│   └── schema.sql          # Schema do banco de dados
-├── uploads/                # Diretório para arquivos enviados
-└── frontend/               # Aplicação React (a ser criada)
+├── backend/                 # API Node.js/Express
+│   ├── src/
+│   │   ├── config/         # Configuração do Supabase
+│   │   ├── routes/         # Rotas da API
+│   │   ├── services/       # Serviços (Excel, NLP)
+│   │   └── app.js          # Aplicação principal
+│   ├── database/           # Scripts do banco de dados
+│   ├── .env                # Variáveis de ambiente
+│   └── package.json
+├── frontend/               # Interface React
+│   ├── src/
+│   │   ├── components/     # Componentes React
+│   │   ├── App.jsx         # Componente principal
+│   │   └── main.jsx        # Ponto de entrada
+│   ├── .env.development    # Variáveis de ambiente
+│   └── package.json
+└── README.md
 ```
 
-## 📊 Schema do Banco de Dados
+## 🎯 Como Usar
 
-### Tabelas Principais
+### 1. Acesse o Sistema
+Abra `http://localhost:5173` no seu navegador
 
-- **ordens_servico**: Dados principais das ordens de serviço
-- **mecanicos**: Cadastro de mecânicos
-- **motores**: Cadastro de motores (fabricante + modelo)
-- **classificacao_defeitos**: Regras de classificação de defeitos
-- **uploads**: Histórico de uploads de planilhas
+### 2. Faça Upload da Planilha
+- Vá para a aba "Upload Excel"
+- Arraste e solte ou selecione o arquivo GLú-Garantias.xlsx
+- Aguarde o processamento automático
 
-### Mapeamento Excel → Banco
+### 3. Visualize os Dados
+- **Dashboard**: Estatísticas gerais e gráficos
+- **Ordens de Serviço**: Tabela detalhada com filtros
+- **Análises**: Insights e relatórios
 
-| Coluna Excel | Campo Banco | Descrição |
-|--------------|-------------|-----------|
-| NOrdem_OSv | numero_ordem | Número da ordem de serviço |
-| Status_OSv | status | Tipo de garantia (G→Garantia, GO→Garantia de Oficina, GU→Garantia de Usinagem) |
-| ObsCorpo_OSv | defeito_texto_bruto | Descrição do defeito (processada por PLN) |
-| RazaoSocial_Cli | mecanico_responsavel | Nome do mecânico |
-| Descricao_Mot | modelo_motor | Modelo do motor |
-| Fabricante_Mot | fabricante_motor | Fabricante do motor |
-| DIA, MÊS, ANO | dia_servico, mes_servico, ano_servico | Data do serviço |
-| TOT. PÇ, TOT. SERV., TOT | total_pecas, total_servico, total_geral | Valores financeiros |
+## 🔍 Funcionalidades Detalhadas
 
-## 🤖 Classificação de Defeitos (PLN)
+### Classificação de Defeitos
+O sistema classifica automaticamente os defeitos em:
 
-O sistema classifica automaticamente os defeitos em uma hierarquia de 3 níveis:
+- **Vazamentos** (Óleo, Água, Combustível, Compressão)
+- **Problemas de Funcionamento** (Superaquecimento, Perda de Potência, Alto Consumo)
+- **Ruídos e Vibrações** (Mancal, Biela, Pistão, Válvula)
+- **Quebra/Dano Estrutural** (Virabrequim, Biela, Pistão, etc.)
+- **Problemas de Combustão** (Fumaça Excessiva)
+- **Desgaste e Folga** (Mancais, Camisas, Anéis, Válvulas)
+- **Problemas de Lubrificação** (Baixa Pressão de Óleo)
+- **Erros de Montagem** (Componente Errado, Montagem Incorreta)
 
-### Grupos Principais
-- Vazamentos
-- Problemas de Funcionamento/Desempenho
-- Ruídos e Vibrações
-- Quebra/Dano Estrutural
-- Problemas de Combustão/Exaustão
-- Desgaste e Folga
-- Problemas de Lubrificação
-- Problemas de Arrefecimento
-- Problemas de Injeção e Alimentação
-- Problemas Elétricos/Eletrônicos
-- Erros de Montagem/Instalação
+### APIs Disponíveis
 
-### Processo de Classificação
-1. **Pré-processamento**: Normalização do texto, remoção de acentos e pontuação
-2. **Correspondência de palavras-chave**: Busca por termos específicos em cada nível
-3. **Hierarquia**: Classificação em ordem (Grupo → Subgrupo → Subsubgrupo)
-4. **Confiança**: Atribuição de score de confiança (0-1)
+- `GET /api/dashboard/stats` - Estatísticas gerais
+- `GET /api/dashboard/charts` - Dados para gráficos
+- `GET /api/ordens` - Lista de ordens de serviço (com filtros)
+- `GET /api/ordens/filters/options` - Opções para filtros
+- `POST /api/upload` - Upload de planilhas Excel
 
-## 📈 APIs Disponíveis
+## 🛠️ Tecnologias Utilizadas
 
-### Upload de Planilha
-```
-POST /api/upload
-Content-Type: multipart/form-data
-Body: arquivo Excel (.xlsx)
-```
+### Backend
+- Node.js + Express
+- Supabase (PostgreSQL)
+- Multer (upload de arquivos)
+- XLSX (processamento de Excel)
+- dotenv (variáveis de ambiente)
 
-### Consulta de Dados
-```
-GET /api/ordens-servico
-Query params: ano, mes, mecanico, fabricante, etc.
-```
+### Frontend
+- React 19
+- Vite (build tool)
+- Tailwind CSS
+- shadcn/ui (componentes)
+- Recharts (gráficos)
+- Lucide React (ícones)
 
-## 🔧 Desenvolvimento
+## 📈 Status do Projeto
 
-### Scripts Disponíveis
-```bash
-npm run dev      # Servidor de desenvolvimento
-npm run start    # Servidor de produção
-npm test         # Executar testes
-```
+✅ **Concluído**:
+- Estrutura base do projeto
+- Backend com APIs funcionais
+- Frontend com interface moderna
+- Sistema de upload e processamento
+- Classificação automática de defeitos
+- Dashboard com gráficos
+- Integração completa frontend-backend
 
-### Próximos Passos
-1. ✅ Configuração inicial do backend
-2. ✅ Schema do banco de dados
-3. ⏳ Implementação completa do processamento Excel
-4. ⏳ Desenvolvimento do frontend React
-5. ⏳ Testes e otimização
-6. ⏳ Deploy
+🔄 **Próximos Passos**:
+- Testes com dados reais
+- Implementação de relatórios em PDF
+- Análises avançadas e filtros temporais
+- Sistema de autenticação
+- Deploy em produção
 
-## 📝 Licença
+## 🤝 Contribuição
 
-Este projeto é privado e destinado ao uso interno da empresa.
+Este projeto foi desenvolvido em colaboração entre o usuário e a IA Manus, seguindo as melhores práticas de desenvolvimento de software empresarial.
+
+## 📞 Suporte
+
+Para dúvidas ou suporte, consulte a documentação do código ou entre em contato com a equipe de desenvolvimento.
+
+---
+
+**Retífica de Motores GLúcio** - Sistema de Análise de Garantias
 
