@@ -19,6 +19,9 @@ import {
 import Dashboard from './components/Dashboard'
 import UploadPage from './components/UploadPage'
 import DataTable from './components/DataTable'
+import AnalysisPage from './components/AnalysisPage'
+import DefectsPage from './components/DefectsPage'
+import MechanicsPage from './components/MechanicsPage'
 import Reports from './components/Reports'
 import SettingsComponent from './components/Settings'
 import './App.css'
@@ -45,6 +48,12 @@ function App() {
         return <UploadPage />
       case 'orders':
         return <DataTable />
+      case 'analysis':
+        return <AnalysisPage />
+      case 'defects':
+        return <DefectsPage />
+      case 'mechanics':
+        return <MechanicsPage />
       case 'reports':
         return <Reports />
       case 'settings':
@@ -61,8 +70,8 @@ function App() {
         {/* Logo */}
         <div className="p-6 border-b border-gray-200">
           <img 
-            src="/logo-glucio.png" 
-            alt="Retífica de Motores GLúcio" 
+            src="/logo.png" 
+            alt="Logo Retífica de Motores" 
             className="h-12 w-auto"
           />
         </div>

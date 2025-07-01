@@ -17,21 +17,42 @@ const Dashboard = () => {
       setError(false)
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+      console.log('Tentando conectar com API em:', apiUrl)
       
       // Buscar estatísticas
-      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats`)
-      if (!statsResponse.ok) throw new Error('Erro ao buscar estatísticas')
+      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!statsResponse.ok) {
+        throw new Error(`Erro HTTP: ${statsResponse.status} - ${statsResponse.statusText}`)
+      }
+      
       const statsData = await statsResponse.json()
+      console.log('Dados de estatísticas recebidos:', statsData)
       setStats(statsData)
 
       // Buscar dados dos gráficos
-      const chartsResponse = await fetch(`${apiUrl}/api/dashboard/charts`)
-      if (!chartsResponse.ok) throw new Error('Erro ao buscar dados dos gráficos')
+      const chartsResponse = await fetch(`${apiUrl}/api/dashboard/charts`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!chartsResponse.ok) {
+        throw new Error(`Erro HTTP: ${chartsResponse.status} - ${chartsResponse.statusText}`)
+      }
+      
       const chartsData = await chartsResponse.json()
+      console.log('Dados de gráficos recebidos:', chartsData)
       setCharts(chartsData)
 
     } catch (error) {
-      console.error('Erro ao carregar dados:', error)
+      console.error('Erro detalhado ao carregar dados:', error)
       setError(true)
     } finally {
       setLoading(false)
