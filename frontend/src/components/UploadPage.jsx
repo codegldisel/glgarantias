@@ -10,6 +10,7 @@ const UploadPage = () => {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState(null) // 'success', 'error', null
+  const [errorMessage, setErrorMessage] = useState('')
   const [dragActive, setDragActive] = useState(false)
 
   const handleDrag = useCallback((e) => {
@@ -22,6 +23,23 @@ const UploadPage = () => {
     }
   }, [])
 
+  const isExcelFile = (file) => {
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'application/excel',
+      'application/x-excel',
+      'application/x-msexcel'
+    ];
+    
+    const validExtensions = ['.xlsx', '.xls'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+    const hasValidType = validTypes.includes(file.type);
+    
+    return hasValidExtension || hasValidType;
+  }
+
   const handleDrop = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -29,12 +47,13 @@ const UploadPage = () => {
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0]
-      if (droppedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-          droppedFile.type === 'application/vnd.ms-excel') {
+      if (isExcelFile(droppedFile)) {
         setFile(droppedFile)
         setUploadStatus(null)
+        setErrorMessage('')
       } else {
         setUploadStatus('error')
+        setErrorMessage('Por favor, selecione apenas arquivos Excel (.xlsx ou .xls)')
       }
     }
   }, [])
@@ -42,12 +61,13 @@ const UploadPage = () => {
   const handleFileSelect = (e) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
-      if (selectedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-          selectedFile.type === 'application/vnd.ms-excel') {
+      if (isExcelFile(selectedFile)) {
         setFile(selectedFile)
         setUploadStatus(null)
+        setErrorMessage('')
       } else {
         setUploadStatus('error')
+        setErrorMessage('Por favor, selecione apenas arquivos Excel (.xlsx ou .xls)')
       }
     }
   }
@@ -58,6 +78,7 @@ const UploadPage = () => {
     setUploading(true)
     setUploadProgress(0)
     setUploadStatus(null)
+    setErrorMessage('')
 
     try {
       const formData = new FormData()
@@ -83,6 +104,7 @@ const UploadPage = () => {
     } catch (error) {
       console.error('Erro no upload:', error)
       setUploadStatus('error')
+      setErrorMessage(error.message || 'Erro desconhecido no upload')
     } finally {
       setUploading(false)
     }
@@ -92,6 +114,7 @@ const UploadPage = () => {
     setFile(null)
     setUploadStatus(null)
     setUploadProgress(0)
+    setErrorMessage('')
   }
 
   const formatFileSize = (bytes) => {
@@ -225,7 +248,7 @@ const UploadPage = () => {
               <AlertDescription className="text-red-800">
                 <strong>Erro no upload</strong>
                 <br />
-                Por favor, selecione apenas arquivos Excel (.xlsx ou .xls).
+                {errorMessage || 'Por favor, selecione apenas arquivos Excel (.xlsx ou .xls).'}
               </AlertDescription>
             </Alert>
           )}
