@@ -19,9 +19,9 @@ router.get('/stats', async (req, res) => {
     
     // Calcular estatísticas
     const totalOS = ordens.length;
-    const totalPecas = ordens.reduce((sum, ordem) => sum + (ordem.valor_pecas || 0), 0);
-    const totalServicos = ordens.reduce((sum, ordem) => sum + (ordem.valor_servicos || 0), 0);
-    const totalGeral = ordens.reduce((sum, ordem) => sum + (ordem.valor_total || 0), 0);
+    const totalPecas = ordens.reduce((sum, ordem) => sum + (ordem.total_pecas || 0), 0);
+    const totalServicos = ordens.reduce((sum, ordem) => sum + (ordem.total_servico || 0), 0);
+    const totalGeral = ordens.reduce((sum, ordem) => sum + (ordem.total_geral || 0), 0);
     
     // Contar mecânicos únicos
     const mecanicosUnicos = new Set(ordens.map(ordem => ordem.mecanico_responsavel).filter(Boolean));
