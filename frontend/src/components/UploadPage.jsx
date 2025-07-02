@@ -22,6 +22,23 @@ const UploadPage = () => {
     }
   }, [])
 
+  const isExcelFile = (file) => {
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'application/excel',
+      'application/x-excel',
+      'application/x-msexcel'
+    ];
+    
+    const validExtensions = ['.xlsx', '.xls'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+    const hasValidType = validTypes.includes(file.type);
+    
+    return hasValidExtension || hasValidType;
+  }
+
   const handleDrop = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -29,8 +46,7 @@ const UploadPage = () => {
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0]
-      if (droppedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-          droppedFile.type === 'application/vnd.ms-excel') {
+      if (isExcelFile(droppedFile)) {
         setFile(droppedFile)
         setUploadStatus(null)
       } else {
@@ -42,12 +58,14 @@ const UploadPage = () => {
   const handleFileSelect = (e) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
-      if (selectedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-          selectedFile.type === 'application/vnd.ms-excel') {
+      if (isExcelFile(selectedFile)) {
         setFile(selectedFile)
         setUploadStatus(null)
       } else {
         setUploadStatus('error')
+      }
+    }
+  }
       }
     }
   }
