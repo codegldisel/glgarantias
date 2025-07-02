@@ -10,6 +10,7 @@ const UploadPage = () => {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState(null) // 'success', 'error', null
+  const [errorMessage, setErrorMessage] = useState('')
   const [dragActive, setDragActive] = useState(false)
 
   const handleDrag = useCallback((e) => {
@@ -49,8 +50,10 @@ const UploadPage = () => {
       if (isExcelFile(droppedFile)) {
         setFile(droppedFile)
         setUploadStatus(null)
+        setErrorMessage('')
       } else {
         setUploadStatus('error')
+        setErrorMessage('Por favor, selecione apenas arquivos Excel (.xlsx ou .xls)')
       }
     }
   }, [])
@@ -61,11 +64,10 @@ const UploadPage = () => {
       if (isExcelFile(selectedFile)) {
         setFile(selectedFile)
         setUploadStatus(null)
+        setErrorMessage('')
       } else {
         setUploadStatus('error')
-      }
-    }
-  }
+        setErrorMessage('Por favor, selecione apenas arquivos Excel (.xlsx ou .xls)')
       }
     }
   }
@@ -76,6 +78,7 @@ const UploadPage = () => {
     setUploading(true)
     setUploadProgress(0)
     setUploadStatus(null)
+    setErrorMessage('')
 
     try {
       const formData = new FormData()
@@ -101,6 +104,7 @@ const UploadPage = () => {
     } catch (error) {
       console.error('Erro no upload:', error)
       setUploadStatus('error')
+      setErrorMessage(error.message || 'Erro desconhecido no upload')
     } finally {
       setUploading(false)
     }
@@ -110,6 +114,7 @@ const UploadPage = () => {
     setFile(null)
     setUploadStatus(null)
     setUploadProgress(0)
+    setErrorMessage('')
   }
 
   const formatFileSize = (bytes) => {
@@ -243,7 +248,7 @@ const UploadPage = () => {
               <AlertDescription className="text-red-800">
                 <strong>Erro no upload</strong>
                 <br />
-                Por favor, selecione apenas arquivos Excel (.xlsx ou .xls).
+                {errorMessage || 'Por favor, selecione apenas arquivos Excel (.xlsx ou .xls).'}
               </AlertDescription>
             </Alert>
           )}
