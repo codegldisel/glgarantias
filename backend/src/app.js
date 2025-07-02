@@ -12,6 +12,7 @@ const supabase = require('./config/supabase');
 // Importar rotas
 const dashboardRoutes = require('./routes/dashboard');
 const ordensRoutes = require('./routes/ordens');
+const analisesRoutes = require('./routes/analises');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rotas
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/ordens', ordensRoutes);
+app.use('/api/analises', analisesRoutes);
 
 // Configuração do multer para upload de arquivos
 const storage = multer.diskStorage({
