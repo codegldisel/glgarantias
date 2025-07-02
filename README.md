@@ -18,7 +18,7 @@ Sistema web para análise automatizada de garantias de motores, desenvolvido par
 - **Serviços especializados**:
   - `ExcelService`: Leitura e processamento de planilhas
   - `NLPService`: Classificação inteligente de defeitos
-- **Rotas organizadas** para dashboard e ordens de serviço
+- **Rotas organizadas** para dashboard, ordens de serviço e análises
 
 ### Frontend (React + Vite)
 - **Interface moderna** com Tailwind CSS e shadcn/ui
@@ -96,6 +96,7 @@ glgarantias/
 │   │   └── main.jsx        # Ponto de entrada
 │   ├── .env.development    # Variáveis de ambiente
 │   └── package.json
+├── HISTORICO_COMPLETO_PROJETO.md  # Documentação completa
 └── README.md
 ```
 
@@ -134,6 +135,9 @@ O sistema classifica automaticamente os defeitos em:
 - `GET /api/dashboard/charts` - Dados para gráficos
 - `GET /api/ordens` - Lista de ordens de serviço (com filtros)
 - `GET /api/ordens/filters/options` - Opções para filtros
+- `GET /api/analises/kpis` - KPIs de análise
+- `GET /api/analises/tendencias` - Dados de tendências
+- `GET /api/analises/performance-mecanicos` - Performance dos mecânicos
 - `POST /api/upload` - Upload de planilhas Excel
 
 ## 🛠️ Tecnologias Utilizadas
@@ -163,6 +167,8 @@ O sistema classifica automaticamente os defeitos em:
 - Classificação automática de defeitos
 - Dashboard com gráficos
 - Integração completa frontend-backend
+- Correção de bugs de conexão
+- Implementação de rotas faltantes
 
 🔄 **Próximos Passos**:
 - Testes com dados reais
@@ -170,6 +176,19 @@ O sistema classifica automaticamente os defeitos em:
 - Análises avançadas e filtros temporais
 - Sistema de autenticação
 - Deploy em produção
+
+## 📚 Documentação Completa
+
+Para informações detalhadas sobre o desenvolvimento, cronologia, problemas resolvidos e soluções implementadas, consulte:
+
+**[HISTORICO_COMPLETO_PROJETO.md](./HISTORICO_COMPLETO_PROJETO.md)**
+
+Este arquivo contém:
+- Cronologia completa de desenvolvimento
+- Detalhes de cada fase do projeto
+- Problemas encontrados e soluções
+- Configurações técnicas
+- Instruções de execução detalhadas
 
 ## 🤝 Contribuição
 
@@ -182,4 +201,6 @@ Para dúvidas ou suporte, consulte a documentação do código ou entre em conta
 ---
 
 **Retífica de Motores GLúcio** - Sistema de Análise de Garantias
+
+*Projeto completo e funcional - Pronto para uso em produção! 🚀*
 
