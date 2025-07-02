@@ -112,9 +112,9 @@ class ExcelService {
           mecanico_responsavel: mecanico,
           observacoes: observacoes,
           defeito_texto_bruto: defeito || observacoes, // Usar observações se defeito estiver vazio
-          valor_pecas: totalPecas,
-          valor_servicos: totalServicos,
-          valor_total: total,
+          total_pecas: totalPecas,
+          total_servico: totalServicos,
+          total_geral: total,
           status: 'processado',
           created_at: new Date().toISOString(),
           // Campos que serão preenchidos pelo NLP
