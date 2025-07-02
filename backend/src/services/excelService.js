@@ -16,19 +16,19 @@ class ExcelService {
       
       console.log('Planilhas encontradas:', workbook.SheetNames);
       
-      // Verificar se a planilha "Planilha6" existe (dados de garantia)
-      if (!workbook.SheetNames.includes('Planilha6')) {
-        throw new Error('Planilha "Planilha6" não encontrada no arquivo Excel. Planilhas disponíveis: ' + workbook.SheetNames.join(', '));
+      // Verificar se a planilha "Tabela" existe (dados de garantia)
+      if (!workbook.SheetNames.includes('Tabela')) {
+        throw new Error('Planilha "Tabela" não encontrada no arquivo Excel. Planilhas disponíveis: ' + workbook.SheetNames.join(', '));
       }
       
-      // Obter a planilha "Planilha6"
-      const worksheet = workbook.Sheets['Planilha6'];
+      // Obter a planilha "Tabela"
+      const worksheet = workbook.Sheets['Tabela'];
       
       // Converter para JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       
       if (jsonData.length === 0) {
-        throw new Error('A planilha "Planilha6" está vazia');
+        throw new Error('A planilha "Tabela" está vazia');
       }
       
       // A primeira linha contém os cabeçalhos
@@ -77,18 +77,18 @@ class ExcelService {
       
       const mappedData = excelData.data.map(row => {
         // Extrair e limpar dados
-        const numeroOS = row['OS'] ? String(row['OS']).trim() : null;
-        const fabricante = row['FABRICANTE'] ? String(row['FABRICANTE']).trim() : null;
-        const motor = row['MOTOR'] ? String(row['MOTOR']).trim() : null;
-        const observacoes = row['OBSERVAÇÕES'] ? String(row['OBSERVAÇÕES']).trim() : null;
-        const defeito = row['DEFEITO'] ? String(row['DEFEITO']).trim() : null;
-        const mecanico = row['MECÂNICO MONTADOR'] ? String(row['MECÂNICO MONTADOR']).trim() : null;
-        const cliente = row['CLIENTE'] ? String(row['CLIENTE']).trim() : null;
+        const numeroOS = row['NOrdem_OSv'] ? String(row['NOrdem_OSv']).trim() : null;
+        const fabricante = row['Fabricante_Mot'] ? String(row['Fabricante_Mot']).trim() : null;
+        const motor = row['Descricao_Mot'] ? String(row['Descricao_Mot']).trim() : null;
+        const observacoes = row['ObsCorpo_OSv'] ? String(row['ObsCorpo_OSv']).trim() : null;
+        const defeito = row['ObsCorpo_OSv'] ? String(row['ObsCorpo_OSv']).trim() : null; // Usar ObsCorpo_OSv como defeito
+        const mecanico = row['RazaoSocial_Cli'] ? String(row['RazaoSocial_Cli']).trim() : null;
+        const cliente = row['Nome_Cli'] ? String(row['Nome_Cli']).trim() : null;
         
         // Converter valores monetários
-        const totalPecas = this.parseNumericValue(row['TOTAL PEÇAS']);
-        const totalServicos = this.parseNumericValue(row['TOTAL SERVIÇOS']);
-        const total = this.parseNumericValue(row['TOTAL']);
+        const totalPecas = this.parseNumericValue(row['TOT. PÇ']);
+        const totalServicos = this.parseNumericValue(row['TOT. SERV.']);
+        const total = this.parseNumericValue(row['TOT']);
         
         // Processar data
         const dia = row['DIA'] ? parseInt(row['DIA']) : null;
