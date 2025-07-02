@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Alert, AlertDescription } from '@/components/ui/alert.jsx'
 import { Button } from '@/components/ui/button.jsx'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
-import { AlertTriangle, RefreshCw, FileText, TrendingUp, TrendingDown } from 'lucide-react'
+import { Badge } from '@/components/ui/badge.jsx'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx'
+import { AlertTriangle, RefreshCw, FileText, TrendingUp, TrendingDown, Calendar } from 'lucide-react'
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [stats, setStats] = useState(null)
-  const [charts, setCharts] = useState(null)
+  const [currentMonthData, setCurrentMonthData] = useState(null)
 
   const fetchData = async () => {
     try {
@@ -35,21 +36,21 @@ const Dashboard = () => {
       console.log('Dados de estatísticas recebidos:', statsData)
       setStats(statsData)
 
-      // Buscar dados dos gráficos
-      const chartsResponse = await fetch(`${apiUrl}/api/dashboard/charts`, {
+      // Buscar dados do mês atual
+      const currentMonthResponse = await fetch(`${apiUrl}/api/dashboard/current-month`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       })
       
-      if (!chartsResponse.ok) {
-        throw new Error(`Erro HTTP: ${chartsResponse.status} - ${chartsResponse.statusText}`)
+      if (!currentMonthResponse.ok) {
+        throw new Error(`Erro HTTP: ${currentMonthResponse.status} - ${currentMonthResponse.statusText}`)
       }
       
-      const chartsData = await chartsResponse.json()
-      console.log('Dados de gráficos recebidos:', chartsData)
-      setCharts(chartsData)
+      const currentMonthData = await currentMonthResponse.json()
+      console.log('Dados do mês atual recebidos:', currentMonthData)
+      setCurrentMonthData(currentMonthData)
 
     } catch (error) {
       console.error('Erro detalhado ao carregar dados:', error)
@@ -65,6 +66,33 @@ const Dashboard = () => {
 
   const handleRetry = () => {
     fetchData()
+  }
+
+  const getMonthName = (monthNumber) => {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return months[monthNumber - 1] || 'Desconhecido';
+  }
+
+  const getStatusBadgeVariant = (status) => {
+    switch (status) {
+      case 'Garantia':
+        return 'default'
+      case 'Garantia de Oficina':
+        return 'secondary'
+      case 'Garantia de Usinagem':
+        return 'outline'
+      default:
+        return 'default'
+    }
+  }
+
+  const getConfiancaColor = (confianca) => {
+    if (confianca >= 0.9) return 'text-green-600'
+    if (confianca >= 0.7) return 'text-yellow-600'
+    return 'text-red-600'
   }
 
   if (loading) {
@@ -88,8 +116,13 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Análises Gerais</h2>
-        <p className="text-sm text-gray-600">Resumo das ordens de serviço de junho de 2025</p>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Dashboard</h2>
+        <p className="text-sm text-gray-600">
+          {currentMonthData ? 
+            `Ordens de serviço de ${getMonthName(currentMonthData.month)} de ${currentMonthData.year}` : 
+            'Carregando dados do mês atual...'
+          }
+        </p>
       </div>
 
       {/* Error Alert */}
@@ -219,25 +252,69 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Orders Chart Section */}
+      {/* Tabela do Mês Atual */}
       <Card className="bg-white">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-gray-600" />
-            <CardTitle className="text-lg font-semibold">Defeitos por Categoria</CardTitle>
+            <Calendar className="h-5 w-5 text-gray-600" />
+            <CardTitle className="text-lg font-semibold">
+              Ordens de Serviço - {currentMonthData ? `${getMonthName(currentMonthData.month)} ${currentMonthData.year}` : 'Mês Atual'}
+            </CardTitle>
           </div>
+          <CardDescription>
+            Dados das ordens de serviço processadas no mês atual
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {charts && charts.defeitosPorGrupo && charts.defeitosPorGrupo.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={charts.defeitosPorGrupo}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="nome" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="valor" fill="#374151" />
-              </BarChart>
-            </ResponsiveContainer>
+          {currentMonthData && currentMonthData.data && currentMonthData.data.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>OS</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Fabricante</TableHead>
+                    <TableHead>Motor</TableHead>
+                    <TableHead>Defeito</TableHead>
+                    <TableHead>Classificação</TableHead>
+                    <TableHead>Mecânico</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Confiança</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentMonthData.data.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.numero_ordem}</TableCell>
+                      <TableCell>{item.data_ordem}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{item.fabricante_motor}</TableCell>
+                      <TableCell>{item.modelo_motor}</TableCell>
+                      <TableCell className="max-w-xs truncate" title={item.defeito}>
+                        {item.defeito}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate" title={item.classificacao}>
+                        {item.classificacao}
+                      </TableCell>
+                      <TableCell>{item.mecanico}</TableCell>
+                      <TableCell>
+                        R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell>
+                        <span className={getConfiancaColor(item.confianca)}>
+                          {(item.confianca * 100).toFixed(0)}%
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
               <div className="text-center">
@@ -259,10 +336,13 @@ const Dashboard = () => {
                   </>
                 ) : (
                   <>
-                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum dado encontrado</h3>
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma ordem encontrada</h3>
                     <p className="text-sm text-gray-600">
-                      Faça o upload de uma planilha para visualizar os gráficos.
+                      {currentMonthData ? 
+                        `Não há ordens de serviço para ${getMonthName(currentMonthData.month)} de ${currentMonthData.year}` :
+                        'Carregando dados...'
+                      }
                     </p>
                   </>
                 )}

@@ -106,5 +106,53 @@ router.get('/charts', async (req, res) => {
   }
 });
 
+// Rota para dados do mês atual
+router.get('/current-month', async (req, res) => {
+  try {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // getMonth() retorna 0-11
+    const currentYear = currentDate.getFullYear();
+
+    console.log(`Buscando dados para: ${currentMonth}/${currentYear}`);
+
+    const { data: ordensServico, error } = await supabase
+      .from('ordens_servico')
+      .select('*')
+      .eq('mes_servico', currentMonth)
+      .eq('ano_servico', currentYear);
+
+    if (error) {
+      console.error('Erro ao buscar dados do mês atual:', error);
+      return res.status(500).json({ error: 'Erro ao buscar dados' });
+    }
+
+    // Formatar dados para a tabela
+    const formattedData = ordensServico.map(os => ({
+      id: os.id,
+      numero_ordem: os.numero_ordem || 'N/A',
+      data_ordem: os.data_ordem || 'N/A',
+      status: os.status || 'N/A',
+      fabricante_motor: os.fabricante_motor || 'N/A',
+      modelo_motor: os.modelo_motor || 'N/A',
+      defeito: os.defeito_texto_bruto || 'N/A',
+      classificacao: os.defeito_grupo || 'N/A',
+      mecanico: os.mecanico_responsavel || 'N/A',
+      total: os.total_geral || 0,
+      confianca: os.classificacao_confianca || 0
+    }));
+
+    res.json({
+      data: formattedData,
+      total: formattedData.length,
+      month: currentMonth,
+      year: currentYear
+    });
+
+  } catch (error) {
+    console.error('Erro no endpoint /current-month:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 module.exports = router;
 
