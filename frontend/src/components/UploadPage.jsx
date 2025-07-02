@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Button } from '@/components/ui/button.jsx'
 import { Alert, AlertDescription } from '@/components/ui/alert.jsx'
@@ -12,6 +12,7 @@ const UploadPage = () => {
   const [uploadStatus, setUploadStatus] = useState(null) // 'success', 'error', null
   const [errorMessage, setErrorMessage] = useState('')
   const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef(null)
 
   const handleDrag = useCallback((e) => {
     e.preventDefault()
@@ -115,6 +116,15 @@ const UploadPage = () => {
     setUploadStatus(null)
     setUploadProgress(0)
     setErrorMessage('')
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleSelectFile = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
   }
 
   const formatFileSize = (bytes) => {
@@ -202,18 +212,20 @@ const UploadPage = () => {
                 </div>
                 <div>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={handleFileSelect}
                     className="hidden"
                     id="file-upload"
                   />
-                  <label htmlFor="file-upload">
-                    <Button className="cursor-pointer flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      Selecionar Arquivo
-                    </Button>
-                  </label>
+                  <Button 
+                    onClick={handleSelectFile}
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Selecionar Arquivo
+                  </Button>
                 </div>
               </div>
             )}
