@@ -1,0 +1,27 @@
+{
+  "name": "glgarantias",
+  "version": "1.0.0",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test-supabase": "node src/testSupabase.js"
+  },
+  "keywords": ["garantias", "motores", "excel", "nlp", "analise"],
+  "author": "Manus AI",
+  "license": "ISC",
+  "description": "Sistema de análise de garantias de motores com processamento de Excel e classificação PLN",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0",
+    "multer": "^2.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
+
