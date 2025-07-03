@@ -32,6 +32,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Adicionar middleware para logar todas as rotas registradas
+app.use((req, res, next) => {
+  console.log('Rotas registradas:');
+  app._router.stack.forEach(function(r){
+    if (r.route && r.route.path){
+      console.log(r.route.path)
+    }
+  })
+  next();
+})
+
 // Configuração do upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -188,11 +199,11 @@ app.get("/", (req, res) => {
   res.send("Backend do App de Garantias está funcionando!");
 });
 
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    message: 'Servidor funcionando!',
+app.get("/api/test", (req, res) => {
+  res.json({
+    message: "Servidor funcionando!",
     timestamp: new Date().toISOString(),
-    supabase_configured: !!(supabaseUrl && supabaseAnonKey)
+    supabase_configured: !!(supabaseUrl && supabaseAnonKey),
   });
 });
 
@@ -396,4 +407,6 @@ if (!fs.existsSync('./uploads')) {
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+
 
