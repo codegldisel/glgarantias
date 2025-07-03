@@ -113,6 +113,74 @@ router.get('/tendencias', async (req, res) => {
   }
 });
 
+// Rota para análise de defeitos
+router.get('/defeitos', async (req, res) => {
+  try {
+    const { data: ordensServico, error } = await supabase
+      .from('ordens_servico')
+      .select('*');
+
+    if (error) {
+      console.error('Erro ao buscar dados para defeitos:', error);
+      return res.status(500).json({ error: 'Erro ao buscar dados' });
+    }
+
+    // Agrupar por grupo de defeito
+    const defeitosPorGrupo = {};
+    const defeitosPorSubgrupo = {};
+    const defeitosPorSubsubgrupo = {};
+
+    ordensServico.forEach(os => {
+      const grupo = os.defeito_grupo || 'Não Classificado';
+      const subgrupo = os.defeito_subgrupo || 'Não Classificado';
+      const subsubgrupo = os.defeito_subsubgrupo || 'Não Classificado';
+
+      // Contar por grupo
+      defeitosPorGrupo[grupo] = (defeitosPorGrupo[grupo] || 0) + 1;
+
+      // Contar por subgrupo
+      const chaveSubgrupo = `${grupo} > ${subgrupo}`;
+      defeitosPorSubgrupo[chaveSubgrupo] = (defeitosPorSubgrupo[chaveSubgrupo] || 0) + 1;
+
+      // Contar por subsubgrupo
+      const chaveSubsubgrupo = `${grupo} > ${subgrupo} > ${subsubgrupo}`;
+      defeitosPorSubsubgrupo[chaveSubsubgrupo] = (defeitosPorSubsubgrupo[chaveSubsubgrupo] || 0) + 1;
+    });
+
+    // Converter para arrays e ordenar
+    const grupos = Object.entries(defeitosPorGrupo)
+      .map(([nome, quantidade]) => ({ nome, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+
+    const subgrupos = Object.entries(defeitosPorSubgrupo)
+      .map(([nome, quantidade]) => ({ nome, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, 10); // Top 10
+
+    const subsubgrupos = Object.entries(defeitosPorSubsubgrupo)
+      .map(([nome, quantidade]) => ({ nome, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, 10); // Top 10
+
+    // Calcular estatísticas de confiança
+    const confiancaMedia = ordensServico.reduce((sum, os) => sum + (os.classificacao_confianca || 0), 0) / ordensServico.length;
+    const ordensComBaixaConfianca = ordensServico.filter(os => (os.classificacao_confianca || 0) < 0.5).length;
+
+    res.json({
+      grupos,
+      subgrupos,
+      subsubgrupos,
+      confiancaMedia,
+      ordensComBaixaConfianca,
+      totalOrdens: ordensServico.length
+    });
+
+  } catch (error) {
+    console.error('Erro no endpoint /defeitos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Rota para performance dos mecânicos
 router.get('/performance-mecanicos', async (req, res) => {
   try {
