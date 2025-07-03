@@ -90,9 +90,9 @@ class ExcelService {
   }
   
   /**
-   * Mapeia os dados do Excel para o formato do banco de dados
+   * Mapeia os dados do Excel para o formato do banco de dados e filtra por status G, GO, GU.
    * @param {Array} excelData - Dados extraídos do Excel
-   * @returns {Array} Dados mapeados para o banco
+   * @returns {Array} Dados mapeados e filtrados para o banco
    */
   static mapExcelDataToDatabase(excelData) {
     try {
@@ -120,15 +120,21 @@ class ExcelService {
           total_servico: this.parseNumber(row["TOT. SERV."]),
           total_geral: this.parseNumber(row["TOT"]),
           cliente_nome: row["Nome_Cli"] || null,
-          data_os: ExcelService.excelSerialDateToJSDate(row["Data_OSv"]), // Duplicado para consistência com o schema
+          data_os: ExcelService.excelSerialDateToJSDate(row["Data_OSv"]),
           observacoes: row["Obs_Osv"] || null,
           data_fechamento: ExcelService.excelSerialDateToJSDate(row["DataFecha_OSv"]),
         };
       });
       
-      return mappedData;
+      // Filtrar registros com base no status (G, GO, GU)
+      const filteredData = mappedData.filter(record => {
+        const status = record.status; 
+        return status === 'Garantia' || status === 'Garantia de Oficina' || status === 'Garantia de Usinagem';
+      });
+
+      return filteredData;
     } catch (error) {
-      console.error("Erro ao mapear dados do Excel:", error);
+      console.error('Erro ao mapear e filtrar dados do Excel:', error);
       throw error;
     }
   }
