@@ -15,106 +15,44 @@ const DataTable = () => {
   const [statusFilter, setStatusFilter] = useState('all')
   const [defeitoFilter, setDefeitoFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
+  const [error, setError] = useState(null)
   const itemsPerPage = 10
 
-  // Dados mockados para demonstração
-  const mockData = [
-    {
-      id: 1,
-      numero_ordem: 'OS001234',
-      data_ordem: '2024-06-15',
-      status: 'Garantia',
-      defeito_texto_bruto: 'Motor aquecendo muito, perdendo água do radiador',
-      defeito_grupo: 'Problemas de Funcionamento/Desempenho',
-      defeito_subgrupo: 'Superaquecimento',
-      defeito_subsubgrupo: 'Com Perda de Água',
-      mecanico_responsavel: 'João Silva',
-      modelo_motor: 'MWM X10',
-      fabricante_motor: 'MWM',
-      total_pecas: 1250.00,
-      total_servico: 800.00,
-      total_geral: 2050.00,
-      classificacao_confianca: 0.95
-    },
-    {
-      id: 2,
-      numero_ordem: 'OS001235',
-      data_ordem: '2024-06-16',
-      status: 'Garantia de Oficina',
-      defeito_texto_bruto: 'Vazamento de óleo no cárter, muito óleo no chão',
-      defeito_grupo: 'Vazamentos',
-      defeito_subgrupo: 'Vazamento de Fluido',
-      defeito_subsubgrupo: 'Óleo',
-      mecanico_responsavel: 'Carlos Eduardo',
-      modelo_motor: 'Cummins ISF',
-      fabricante_motor: 'Cummins',
-      total_pecas: 450.00,
-      total_servico: 300.00,
-      total_geral: 750.00,
-      classificacao_confianca: 0.92
-    },
-    {
-      id: 3,
-      numero_ordem: 'OS001236',
-      data_ordem: '2024-06-17',
-      status: 'Garantia de Usinagem',
-      defeito_texto_bruto: 'Ruído estranho no motor, barulho de batida na biela',
-      defeito_grupo: 'Ruídos e Vibrações',
-      defeito_subgrupo: 'Ruído Interno',
-      defeito_subsubgrupo: 'Biela',
-      mecanico_responsavel: 'Paulo Roberto',
-      modelo_motor: 'Mercedes OM924',
-      fabricante_motor: 'Mercedes-Benz',
-      total_pecas: 2800.00,
-      total_servico: 1200.00,
-      total_geral: 4000.00,
-      classificacao_confianca: 0.88
-    },
-    {
-      id: 4,
-      numero_ordem: 'OS001237',
-      data_ordem: '2024-06-18',
-      status: 'Garantia',
-      defeito_texto_bruto: 'Pistão quebrado no 3º cilindro, motor travou',
-      defeito_grupo: 'Quebra/Dano Estrutural',
-      defeito_subgrupo: 'Quebra/Fratura',
-      defeito_subsubgrupo: 'Pistão',
-      mecanico_responsavel: 'Alexandre Cunha',
-      modelo_motor: 'Volvo D13',
-      fabricante_motor: 'Volvo',
-      total_pecas: 3500.00,
-      total_servico: 1800.00,
-      total_geral: 5300.00,
-      classificacao_confianca: 0.97
-    },
-    {
-      id: 5,
-      numero_ordem: 'OS001238',
-      data_ordem: '2024-06-19',
-      status: 'Garantia',
-      defeito_texto_bruto: 'Filtro errado instalado, causou problema no motor',
-      defeito_grupo: 'Erros de Montagem/Instalação',
-      defeito_subgrupo: 'Componente Incompatível/Errado',
-      defeito_subsubgrupo: 'Filtro',
-      mecanico_responsavel: 'Wilson Santos',
-      modelo_motor: 'Scania DC13',
-      fabricante_motor: 'Scania',
-      total_pecas: 180.00,
-      total_servico: 120.00,
-      total_geral: 300.00,
-      classificacao_confianca: 0.91
-    }
-  ]
-
+  // Buscar dados reais da API
   useEffect(() => {
-    // Simular carregamento de dados
-    const timer = setTimeout(() => {
-      setData(mockData)
-      setFilteredData(mockData)
-      setLoading(false)
-    }, 1000)
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const apiUrl = 'http://localhost:3000'
+        const response = await fetch(`${apiUrl}/api/ordens?limit=1000`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`)
+        }
+        
+        const result = await response.json()
+        console.log('Dados carregados da API:', result)
+        
+        setData(result.data || [])
+        setFilteredData(result.data || [])
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error)
+        setError('Erro ao carregar dados. Verifique se o backend está rodando.')
+        setData([])
+        setFilteredData([])
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timer)
+    fetchData()
   }, [])
 
   useEffect(() => {
@@ -180,6 +118,26 @@ const DataTable = () => {
                 <div key={i} className="h-12 bg-muted rounded"></div>
               ))}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center space-y-4">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
+            <h3 className="text-lg font-semibold text-red-700">Erro ao carregar dados</h3>
+            <p className="text-red-600">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              variant="outline"
+            >
+              Tentar novamente
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -275,30 +233,30 @@ const DataTable = () => {
               <TableBody>
                 {currentData.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.numero_ordem}</TableCell>
-                    <TableCell>{new Date(item.data_ordem).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell className="font-medium">{item.numero_ordem ?? '-'}</TableCell>
+                    <TableCell>{item.data_ordem ? new Date(item.data_ordem).toLocaleDateString('pt-BR') : '-'}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(item.status)}>
-                        {item.status}
+                        {item.status ?? '-'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{item.fabricante_motor}</TableCell>
-                    <TableCell>{item.modelo_motor}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={item.defeito_texto_bruto}>
-                      {item.defeito_texto_bruto}
+                    <TableCell>{item.fabricante_motor ?? '-'}</TableCell>
+                    <TableCell>{item.modelo_motor ?? '-'}</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={item.defeito_texto_bruto ?? ''}>
+                      {item.defeito_texto_bruto ?? '-'}
                     </TableCell>
                     <TableCell>
                       <div className="text-xs">
-                        <div className="font-medium">{item.defeito_grupo}</div>
-                        <div className="text-muted-foreground">{item.defeito_subgrupo}</div>
-                        <div className="text-muted-foreground">{item.defeito_subsubgrupo}</div>
+                        <div className="font-medium">{item.defeito_grupo ?? '-'}</div>
+                        <div className="text-muted-foreground">{item.defeito_subgrupo ?? '-'}</div>
+                        <div className="text-muted-foreground">{item.defeito_subsubgrupo ?? '-'}</div>
                       </div>
                     </TableCell>
-                    <TableCell>{item.mecanico_responsavel}</TableCell>
-                    <TableCell>R$ {item.total_geral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell>{item.mecanico_responsavel ?? '-'}</TableCell>
+                    <TableCell>R$ {(item.total_geral ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell>
-                      <span className={getConfiancaColor(item.classificacao_confianca)}>
-                        {(item.classificacao_confianca * 100).toFixed(0)}%
+                      <span className={getConfiancaColor(item.classificacao_confianca ?? 0)}>
+                        {((item.classificacao_confianca ?? 0) * 100).toFixed(0)}%
                       </span>
                     </TableCell>
                   </TableRow>

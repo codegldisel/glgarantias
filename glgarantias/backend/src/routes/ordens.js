@@ -182,5 +182,26 @@ router.post('/fix-data', async (req, res) => {
   }
 });
 
+// Rota para reclassificar defeitos existentes
+router.post('/reclassify-defects', async (req, res) => {
+  try {
+    const { reclassificarDefeitos } = require('../scripts/reclassificarDefeitos');
+    
+    console.log('Iniciando reclassificação de defeitos via API...');
+    
+    // Executar a reclassificação
+    await reclassificarDefeitos();
+    
+    res.json({ 
+      message: 'Reclassificação de defeitos executada com sucesso!',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro na reclassificação de defeitos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor na reclassificação de defeitos' });
+  }
+});
+
 module.exports = router;
 

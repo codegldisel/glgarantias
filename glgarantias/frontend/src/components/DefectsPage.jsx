@@ -11,91 +11,72 @@ const DefectsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('todos')
   const [selectedSeverity, setSelectedSeverity] = useState('todos')
+  const [defeitosDetalhados, setDefeitosDetalhados] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [tendencias, setTendencias] = useState([])
 
-  // Dados de exemplo para demonstração
-  const defeitosDetalhados = [
-    {
-      id: 1,
-      categoria: 'Vazamentos',
-      subcategoria: 'Vazamento de Fluido',
-      subsubcategoria: 'Óleo',
-      descricao: 'BAIXANDO OLEO',
-      frequencia: 45,
-      severidade: 'Alta',
-      tempoMedioReparo: 2.5,
-      custoMedio: 350.00,
-      tendencia: 'crescente'
-    },
-    {
-      id: 2,
-      categoria: 'Problemas de Funcionamento',
-      subcategoria: 'Superaquecimento',
-      subsubcategoria: 'Geral',
-      descricao: 'MOTOR AQUECENDO',
-      frequencia: 38,
-      severidade: 'Alta',
-      tempoMedioReparo: 3.2,
-      custoMedio: 480.00,
-      tendencia: 'estavel'
-    },
-    {
-      id: 3,
-      categoria: 'Ruídos e Vibrações',
-      subcategoria: 'Ruído Interno',
-      subsubcategoria: 'Mancal',
-      descricao: 'RODOU CASQUILHO',
-      frequencia: 32,
-      severidade: 'Crítica',
-      tempoMedioReparo: 4.1,
-      custoMedio: 650.00,
-      tendencia: 'decrescente'
-    },
-    {
-      id: 4,
-      categoria: 'Quebra/Dano Estrutural',
-      subcategoria: 'Quebra/Fratura',
-      subsubcategoria: 'Pistão',
-      descricao: 'PISTAO QUEBRADO',
-      frequencia: 28,
-      severidade: 'Crítica',
-      tempoMedioReparo: 5.5,
-      custoMedio: 850.00,
-      tendencia: 'estavel'
-    },
-    {
-      id: 5,
-      categoria: 'Problemas de Combustão',
-      subcategoria: 'Fumaça Excessiva',
-      subsubcategoria: 'No Respiro',
-      descricao: 'SOPRA NO RESPIRO',
-      frequencia: 25,
-      severidade: 'Média',
-      tempoMedioReparo: 2.8,
-      custoMedio: 420.00,
-      tendencia: 'crescente'
-    },
-    {
-      id: 6,
-      categoria: 'Desgaste e Folga',
-      subcategoria: 'Desgaste de Componentes',
-      subsubcategoria: 'Válvulas',
-      descricao: 'VALVULA GASTOU',
-      frequencia: 22,
-      severidade: 'Média',
-      tempoMedioReparo: 3.5,
-      custoMedio: 380.00,
-      tendencia: 'decrescente'
+  // Buscar dados reais de defeitos da API
+  useEffect(() => {
+    const fetchDefeitos = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const apiUrl = 'http://localhost:3000'
+        const response = await fetch(`${apiUrl}/api/analises/defeitos`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`)
+        }
+        
+        const result = await response.json()
+        console.log('Dados de defeitos carregados:', result)
+        
+        // Transformar dados da API para o formato esperado pelo componente
+        const defeitosFormatados = result.map((defeito, index) => ({
+          id: index + 1,
+          categoria: defeito.defeito_grupo || 'Não Classificado',
+          subcategoria: defeito.defeito_subgrupo || 'Não Classificado',
+          subsubcategoria: defeito.defeito_subsubgrupo || 'Não Classificado',
+          descricao: defeito.defeito_texto_bruto || 'Sem descrição',
+          frequencia: defeito.quantidade || 0,
+          severidade: defeito.confianca_media > 0.8 ? 'Alta' : defeito.confianca_media > 0.6 ? 'Média' : 'Baixa',
+          tempoMedioReparo: 3.0, // Padrão
+          custoMedio: defeito.valor_total / defeito.quantidade || 0,
+          tendencia: 'estavel' // Padrão
+        }))
+        
+        setDefeitosDetalhados(defeitosFormatados)
+
+        // Buscar tendências reais
+        const tendenciasResponse = await fetch(`${apiUrl}/api/analises/tendencias`)
+        if (!tendenciasResponse.ok) throw new Error('Erro ao buscar tendências')
+        const tendenciasData = await tendenciasResponse.json()
+        setTendencias(tendenciasData)
+      } catch (error) {
+        console.error('Erro ao carregar dados de defeitos:', error)
+        setError('Erro ao carregar dados de defeitos. Verifique se o backend está rodando.')
+        setDefeitosDetalhados([])
+        setTendencias([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
 
-  const defeitosPorMes = [
-    { mes: 'Jan', vazamentos: 12, funcionamento: 8, ruidos: 5, quebras: 3, combustao: 4, desgaste: 2 },
-    { mes: 'Fev', vazamentos: 15, funcionamento: 12, ruidos: 7, quebras: 4, combustao: 6, desgaste: 3 },
-    { mes: 'Mar', vazamentos: 18, funcionamento: 10, ruidos: 9, quebras: 6, combustao: 5, desgaste: 4 },
-    { mes: 'Abr', vazamentos: 14, funcionamento: 15, ruidos: 6, quebras: 5, combustao: 7, desgaste: 3 },
-    { mes: 'Mai', vazamentos: 20, funcionamento: 18, ruidos: 8, quebras: 7, combustao: 8, desgaste: 5 },
-    { mes: 'Jun', vazamentos: 16, funcionamento: 14, ruidos: 10, quebras: 4, combustao: 6, desgaste: 4 }
-  ]
+    fetchDefeitos()
+  }, [])
+
+  const defeitosPorMes = tendencias.map(t => ({
+    mes: `${t.periodo.split('-')[1]}/${t.periodo.split('-')[0]}`,
+    total: t.quantidade,
+    valor: t.valor
+  }))
 
   const filteredDefects = defeitosDetalhados.filter(defeito => {
     const matchesSearch = defeito.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -123,6 +104,65 @@ const DefectsPage = () => {
       case 'estavel': return <div className="h-4 w-4 bg-gray-400 rounded-full"></div>
       default: return null
     }
+  }
+
+  // Calcular estatísticas rápidas reais
+  const totalDefeitos = filteredDefects.reduce((sum, d) => sum + (d.frequencia || 0), 0)
+  const maisFrequente = filteredDefects.reduce((max, d) => d.frequencia > (max?.frequencia || 0) ? d : max, null)
+  const custoMedio = filteredDefects.length > 0 ? (filteredDefects.reduce((sum, d) => sum + (d.custoMedio || 0), 0) / filteredDefects.length) : 0
+  const tempoMedio = filteredDefects.length > 0 ? (filteredDefects.reduce((sum, d) => sum + (d.tempoMedioReparo || 0), 0) / filteredDefects.length) : 0
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Análise de Defeitos</h2>
+            <p className="text-sm text-gray-600 mt-1">Carregando dados...</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-muted rounded w-1/4"></div>
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-12 bg-muted rounded"></div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Análise de Defeitos</h2>
+            <p className="text-sm text-gray-600 mt-1">Erro ao carregar dados</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
+              <h3 className="text-lg font-semibold text-red-700">Erro ao carregar dados</h3>
+              <p className="text-red-600">{error}</p>
+              <Button 
+                onClick={() => window.location.reload()} 
+                variant="outline"
+              >
+                Tentar novamente
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -196,7 +236,7 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total de Defeitos</p>
-                <p className="text-2xl font-bold text-gray-900">{filteredDefects.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{totalDefeitos}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-orange-500" />
             </div>
@@ -208,8 +248,8 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Mais Frequente</p>
-                <p className="text-lg font-bold text-red-600">Vazamentos</p>
-                <p className="text-xs text-gray-500">45 ocorrências</p>
+                <p className="text-lg font-bold text-red-600">{maisFrequente?.descricao || 'Nenhum defeito encontrado'}</p>
+                <p className="text-xs text-gray-500">Frequência: {maisFrequente?.frequencia || 0}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-red-500" />
             </div>
@@ -221,7 +261,7 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Custo Médio</p>
-                <p className="text-2xl font-bold text-blue-600">R$ 522</p>
+                <p className="text-2xl font-bold text-blue-600">R$ {custoMedio.toFixed(2)}</p>
                 <p className="text-xs text-gray-500">por reparo</p>
               </div>
               <TrendingUp className="h-8 w-8 text-blue-500" />
@@ -234,7 +274,7 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Tempo Médio</p>
-                <p className="text-2xl font-bold text-green-600">3.6h</p>
+                <p className="text-2xl font-bold text-green-600">{tempoMedio.toFixed(1)}h</p>
                 <p className="text-xs text-gray-500">de reparo</p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-500" />
@@ -258,12 +298,8 @@ const DefectsPage = () => {
               <XAxis dataKey="mes" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="vazamentos" fill="#ef4444" name="Vazamentos" />
-              <Bar dataKey="funcionamento" fill="#f97316" name="Funcionamento" />
-              <Bar dataKey="ruidos" fill="#eab308" name="Ruídos" />
-              <Bar dataKey="quebras" fill="#22c55e" name="Quebras" />
-              <Bar dataKey="combustao" fill="#3b82f6" name="Combustão" />
-              <Bar dataKey="desgaste" fill="#8b5cf6" name="Desgaste" />
+              <Bar dataKey="total" fill="#ef4444" name="Total de Defeitos" />
+              <Bar dataKey="valor" fill="#f97316" name="Valor Total" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

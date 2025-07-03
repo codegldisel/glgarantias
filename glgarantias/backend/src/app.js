@@ -102,8 +102,28 @@ app.post('/api/upload', upload.single('planilha'), async (req, res) => {
     const mappedData = ExcelService.mapExcelDataToDatabase(excelData);
 
     // 3. Classificar defeitos usando PLN e preparar para inserção
-    const dataToInsert = mappedData.map(row => {
-      const classification = nlpService.classifyDefect(row.defeito_texto_bruto);
+    console.log(`Iniciando classificação de defeitos para ${mappedData.length} registros...`);
+    
+    const dataToInsert = mappedData.map((row, index) => {
+      // Classificar defeito se houver texto
+      let classification = {
+        grupo: 'Não Classificado',
+        subgrupo: 'Não Classificado',
+        subsubgrupo: 'Não Classificado',
+        confianca: 0.0
+      };
+      
+      if (row.defeito_texto_bruto && row.defeito_texto_bruto.trim() !== '') {
+        try {
+          classification = nlpService.classifyDefect(row.defeito_texto_bruto);
+          console.log(`Registro ${index + 1}: "${row.defeito_texto_bruto.substring(0, 50)}..." → ${classification.grupo}`);
+        } catch (error) {
+          console.warn(`Erro ao classificar defeito do registro ${index + 1}:`, error.message);
+        }
+      } else {
+        console.log(`Registro ${index + 1}: Sem texto de defeito para classificar`);
+      }
+      
       return {
         ...row,
         defeito_grupo: classification.grupo,
@@ -112,6 +132,8 @@ app.post('/api/upload', upload.single('planilha'), async (req, res) => {
         classificacao_confianca: classification.confianca
       };
     });
+    
+    console.log(`Classificação concluída. ${dataToInsert.length} registros processados.`);
 
     // 4. Inserir dados processados no Supabase
     // Usar upsert para evitar duplicatas baseadas em numero_ordem

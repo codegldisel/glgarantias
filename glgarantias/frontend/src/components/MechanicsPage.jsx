@@ -12,112 +12,81 @@ const MechanicsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPeriod, setSelectedPeriod] = useState('mes')
   const [selectedMetric, setSelectedMetric] = useState('eficiencia')
+  const [mecanicos, setMecanicos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [performanceMecanicos, setPerformanceMecanicos] = useState([])
+  const [tendencias, setTendencias] = useState([])
 
-  // Dados de exemplo para demonstração
-  const mecanicos = [
-    {
-      id: 1,
-      nome: 'Carlos Eduardo',
-      iniciais: 'CE',
-      osCompletas: 45,
-      osEmAndamento: 3,
-      tempoMedioReparo: 2.3,
-      qualidade: 95,
-      especialidade: 'Motores Diesel',
-      experiencia: 8,
-      avaliacaoCliente: 4.8,
-      defeitosResolvidos: ['Vazamentos', 'Superaquecimento'],
-      produtividade: 92,
-      pontualidade: 98,
-      status: 'ativo'
-    },
-    {
-      id: 2,
-      nome: 'Wilson Silva',
-      iniciais: 'WS',
-      osCompletas: 38,
-      osEmAndamento: 2,
-      tempoMedioReparo: 2.8,
-      qualidade: 92,
-      especialidade: 'Motores Gasolina',
-      experiencia: 6,
-      avaliacaoCliente: 4.6,
-      defeitosResolvidos: ['Ruídos', 'Desgaste'],
-      produtividade: 88,
-      pontualidade: 95,
-      status: 'ativo'
-    },
-    {
-      id: 3,
-      nome: 'Gilson de Paula',
-      iniciais: 'GP',
-      osCompletas: 42,
-      osEmAndamento: 4,
-      tempoMedioReparo: 2.5,
-      qualidade: 88,
-      especialidade: 'Retífica Geral',
-      experiencia: 12,
-      avaliacaoCliente: 4.4,
-      defeitosResolvidos: ['Quebras', 'Montagem'],
-      produtividade: 85,
-      pontualidade: 92,
-      status: 'ativo'
-    },
-    {
-      id: 4,
-      nome: 'Paulo Roberto',
-      iniciais: 'PR',
-      osCompletas: 35,
-      osEmAndamento: 1,
-      tempoMedioReparo: 3.1,
-      qualidade: 90,
-      especialidade: 'Motores Pesados',
-      experiencia: 10,
-      avaliacaoCliente: 4.5,
-      defeitosResolvidos: ['Vazamentos', 'Combustão'],
-      produtividade: 82,
-      pontualidade: 90,
-      status: 'ativo'
-    },
-    {
-      id: 5,
-      nome: 'Jean Santos',
-      iniciais: 'JS',
-      osCompletas: 40,
-      osEmAndamento: 2,
-      tempoMedioReparo: 2.7,
-      qualidade: 87,
-      especialidade: 'Eletrônica Automotiva',
-      experiencia: 5,
-      avaliacaoCliente: 4.3,
-      defeitosResolvidos: ['Funcionamento', 'Sensores'],
-      produtividade: 89,
-      pontualidade: 94,
-      status: 'ativo'
+  useEffect(() => {
+    const fetchMecanicos = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const apiUrl = 'http://localhost:3000'
+        // Buscar performance dos mecânicos
+        const response = await fetch(`${apiUrl}/api/analises/performance-mecanicos`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        if (!response.ok) throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`)
+        const result = await response.json()
+        setPerformanceMecanicos(result)
+        // Transformar dados da API para o formato esperado pelo componente
+        const mecanicosFormatados = result.map((mecanico, index) => ({
+          id: index + 1,
+          nome: mecanico.mecanico_responsavel,
+          iniciais: mecanico.mecanico_responsavel.split(' ').map(n => n[0]).join('').substring(0, 2),
+          osCompletas: mecanico.total_ordens,
+          osEmAndamento: 0, // Não disponível na API atual
+          tempoMedioReparo: 0, // Não disponível na API atual
+          qualidade: Math.round((mecanico.ordens_com_defeito / mecanico.total_ordens) * 100),
+          especialidade: 'Motores', // Padrão
+          experiencia: 5, // Padrão
+          avaliacaoCliente: 4.5, // Padrão
+          defeitosResolvidos: ['Vazamentos', 'Superaquecimento'], // Padrão
+          produtividade: Math.round((mecanico.total_ordens / 30) * 100), // Estimativa
+          pontualidade: 95, // Padrão
+          status: 'ativo'
+        }))
+        setMecanicos(mecanicosFormatados)
+        // Buscar tendências reais
+        const tendenciasResponse = await fetch(`${apiUrl}/api/analises/tendencias`)
+        if (!tendenciasResponse.ok) throw new Error('Erro ao buscar tendências')
+        const tendenciasData = await tendenciasResponse.json()
+        setTendencias(tendenciasData)
+      } catch (error) {
+        setError('Erro ao carregar dados de mecânicos. Verifique se o backend está rodando.')
+        setMecanicos([])
+        setPerformanceMecanicos([])
+        setTendencias([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
-
-  const performanceComparativa = [
-    { mecanico: 'Carlos E.', qualidade: 95, produtividade: 92, pontualidade: 98, satisfacao: 96 },
-    { mecanico: 'Wilson S.', qualidade: 92, produtividade: 88, pontualidade: 95, satisfacao: 92 },
-    { mecanico: 'Gilson P.', qualidade: 88, produtividade: 85, pontualidade: 92, satisfacao: 88 },
-    { mecanico: 'Paulo R.', qualidade: 90, produtividade: 82, pontualidade: 90, satisfacao: 90 },
-    { mecanico: 'Jean S.', qualidade: 87, produtividade: 89, pontualidade: 94, satisfacao: 86 }
-  ]
-
-  const produtividadeMensal = [
-    { mes: 'Jan', carlos: 42, wilson: 35, gilson: 38, paulo: 32, jean: 37 },
-    { mes: 'Fev', carlos: 45, wilson: 38, gilson: 40, paulo: 34, jean: 39 },
-    { mes: 'Mar', carlos: 48, wilson: 36, gilson: 42, paulo: 35, jean: 41 },
-    { mes: 'Abr', carlos: 44, wilson: 39, gilson: 41, paulo: 33, jean: 38 },
-    { mes: 'Mai', carlos: 46, wilson: 37, gilson: 43, paulo: 36, jean: 40 },
-    { mes: 'Jun', carlos: 45, wilson: 38, gilson: 42, paulo: 35, jean: 40 }
-  ]
+    fetchMecanicos()
+  }, [])
 
   const filteredMecanicos = mecanicos.filter(mecanico =>
     mecanico.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     mecanico.especialidade.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Calcular performance comparativa real
+  const performanceComparativa = mecanicos.slice(0, 5).map(m => ({
+    mecanico: m.nome.split(' ')[0] + ' ' + (m.nome.split(' ')[1]?.charAt(0) || '') + '.',
+    qualidade: m.qualidade,
+    produtividade: m.produtividade,
+    pontualidade: m.pontualidade,
+    satisfacao: Math.round((m.qualidade + m.produtividade + m.pontualidade) / 3)
+  }))
+
+  // Calcular produtividade mensal real
+  // Agrupar tendências por mês e por mecânico (se disponível)
+  const produtividadeMensal = tendencias.map(t => ({
+    mes: `${t.periodo.split('-')[1]}/${t.periodo.split('-')[0]}`,
+    total: t.quantidade
+  }))
 
   const getQualityColor = (qualidade) => {
     if (qualidade >= 90) return 'bg-green-100 text-green-800 border-green-200'
@@ -129,6 +98,64 @@ const MechanicsPage = () => {
     if (qualidade >= 90) return 'bg-green-500'
     if (qualidade >= 85) return 'bg-yellow-500'
     return 'bg-red-500'
+  }
+
+  // Estatísticas rápidas reais
+  const qualidadeMedia = mecanicos.length > 0 ? (mecanicos.reduce((sum, m) => sum + (m.qualidade || 0), 0) / mecanicos.length) : 0;
+  const tempoMedio = mecanicos.length > 0 ? (mecanicos.reduce((sum, m) => sum + (m.tempoMedioReparo || 0), 0) / mecanicos.length) : 0;
+  const produtividadeMedia = mecanicos.length > 0 ? (mecanicos.reduce((sum, m) => sum + (m.produtividade || 0), 0) / mecanicos.length) : 0;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Gestão de Mecânicos</h2>
+            <p className="text-sm text-gray-600 mt-1">Carregando dados...</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-muted rounded w-1/4"></div>
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-12 bg-muted rounded"></div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Gestão de Mecânicos</h2>
+            <p className="text-sm text-gray-600 mt-1">Erro ao carregar dados</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
+              <h3 className="text-lg font-semibold text-red-700">Erro ao carregar dados</h3>
+              <p className="text-red-600">{error}</p>
+              <Button 
+                onClick={() => window.location.reload()} 
+                variant="outline"
+              >
+                Tentar novamente
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -216,7 +243,7 @@ const MechanicsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Qualidade Média</p>
-                <p className="text-2xl font-bold text-green-600">90.4%</p>
+                <p className="text-2xl font-bold text-green-600">{qualidadeMedia.toFixed(1)}%</p>
                 <p className="text-xs text-gray-500">↑ 2.1% vs mês anterior</p>
               </div>
               <Award className="h-8 w-8 text-green-500" />
@@ -229,7 +256,7 @@ const MechanicsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Tempo Médio</p>
-                <p className="text-2xl font-bold text-orange-600">2.7h</p>
+                <p className="text-2xl font-bold text-orange-600">{tempoMedio.toFixed(1)}h</p>
                 <p className="text-xs text-gray-500">por OS</p>
               </div>
               <Clock className="h-8 w-8 text-orange-500" />
@@ -242,7 +269,7 @@ const MechanicsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Produtividade</p>
-                <p className="text-2xl font-bold text-purple-600">87.2%</p>
+                <p className="text-2xl font-bold text-purple-600">{produtividadeMedia.toFixed(1)}%</p>
                 <p className="text-xs text-gray-500">eficiência geral</p>
               </div>
               <TrendingUp className="h-8 w-8 text-purple-500" />
