@@ -104,6 +104,12 @@ class ExcelService {
           defeitoTextoBruto = row["Descricao_TSr"];
         }
 
+        // Filtrar status válidos
+        const statusRaw = row["Status_OSv"] ? row["Status_OSv"].toString().toUpperCase().trim() : null;
+        if (!["G", "GO", "GU"].includes(statusRaw)) {
+          return null; // descartar registros inválidos
+        }
+
         return {
           numero_ordem: row["NOrdem_OSv"] || null,
           data_ordem: ExcelService.excelSerialDateToJSDate(row["Data_OSv"]),
@@ -123,15 +129,9 @@ class ExcelService {
           observacoes: row["Obs_Osv"] || null,
           data_fechamento: ExcelService.excelSerialDateToJSDate(row["DataFecha_OSv"]),
         };
-      });
-      
-      // Filtrar registros com base no status (G, GO, GU)
-      const filteredData = mappedData.filter(record => {
-        const status = record.status; 
-        return status === 'Garantia' || status === 'Garantia de Oficina' || status === 'Garantia de Usinagem';
-      });
+      }).filter(Boolean); // remove nulls
 
-      return filteredData;
+      return mappedData;
     } catch (error) {
       console.error('Erro ao mapear e filtrar dados do Excel:', error);
       throw error;

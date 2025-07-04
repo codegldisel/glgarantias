@@ -5,10 +5,18 @@ const supabase = require('../config/supabase');
 // Rota para estatísticas do dashboard
 router.get('/stats', async (req, res) => {
   try {
-    // Buscar estatísticas básicas
+    // Permitir filtro por mês/ano via query
+    let { mes, ano } = req.query;
+    const now = new Date();
+    if (!mes) mes = now.getMonth() + 1;
+    if (!ano) ano = now.getFullYear();
+
+    // Buscar estatísticas filtradas
     const { data: ordensServico, error: ordensError } = await supabase
       .from('ordens_servico')
-      .select('*');
+      .select('*')
+      .eq('mes_servico', parseInt(mes))
+      .eq('ano_servico', parseInt(ano));
 
     if (ordensError) {
       console.error('Erro ao buscar ordens de serviço:', ordensError);
