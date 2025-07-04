@@ -114,23 +114,24 @@ router.get('/charts', async (req, res) => {
   }
 });
 
-// Rota para dados do mês atual
+// Rota para dados do mês selecionado
 router.get('/current-month', async (req, res) => {
   try {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1; // getMonth() retorna 0-11
-    const currentYear = currentDate.getFullYear();
+    let { mes, ano } = req.query;
+    const now = new Date();
+    if (!mes) mes = now.getMonth() + 1;
+    if (!ano) ano = now.getFullYear();
 
-    console.log(`Buscando dados para: ${currentMonth}/${currentYear}`);
+    console.log(`Buscando dados para: ${mes}/${ano}`);
 
     const { data: ordensServico, error } = await supabase
       .from('ordens_servico')
       .select('*')
-      .eq('mes_servico', currentMonth)
-      .eq('ano_servico', currentYear);
+      .eq('mes_servico', parseInt(mes))
+      .eq('ano_servico', parseInt(ano));
 
     if (error) {
-      console.error('Erro ao buscar dados do mês atual:', error);
+      console.error('Erro ao buscar dados do mês selecionado:', error);
       return res.status(500).json({ error: 'Erro ao buscar dados' });
     }
 
@@ -152,8 +153,8 @@ router.get('/current-month', async (req, res) => {
     res.json({
       data: formattedData,
       total: formattedData.length,
-      month: currentMonth,
-      year: currentYear
+      month: parseInt(mes),
+      year: parseInt(ano)
     });
 
   } catch (error) {

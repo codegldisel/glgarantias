@@ -12,90 +12,25 @@ const MechanicsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPeriod, setSelectedPeriod] = useState('mes')
   const [selectedMetric, setSelectedMetric] = useState('eficiencia')
+  const [mecanicos, setMecanicos] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Dados de exemplo para demonstração
-  const mecanicos = [
-    {
-      id: 1,
-      nome: 'Carlos Eduardo',
-      iniciais: 'CE',
-      osCompletas: 45,
-      osEmAndamento: 3,
-      tempoMedioReparo: 2.3,
-      qualidade: 95,
-      especialidade: 'Motores Diesel',
-      experiencia: 8,
-      avaliacaoCliente: 4.8,
-      defeitosResolvidos: ['Vazamentos', 'Superaquecimento'],
-      produtividade: 92,
-      pontualidade: 98,
-      status: 'ativo'
-    },
-    {
-      id: 2,
-      nome: 'Wilson Silva',
-      iniciais: 'WS',
-      osCompletas: 38,
-      osEmAndamento: 2,
-      tempoMedioReparo: 2.8,
-      qualidade: 92,
-      especialidade: 'Motores Gasolina',
-      experiencia: 6,
-      avaliacaoCliente: 4.6,
-      defeitosResolvidos: ['Ruídos', 'Desgaste'],
-      produtividade: 88,
-      pontualidade: 95,
-      status: 'ativo'
-    },
-    {
-      id: 3,
-      nome: 'Gilson de Paula',
-      iniciais: 'GP',
-      osCompletas: 42,
-      osEmAndamento: 4,
-      tempoMedioReparo: 2.5,
-      qualidade: 88,
-      especialidade: 'Retífica Geral',
-      experiencia: 12,
-      avaliacaoCliente: 4.4,
-      defeitosResolvidos: ['Quebras', 'Montagem'],
-      produtividade: 85,
-      pontualidade: 92,
-      status: 'ativo'
-    },
-    {
-      id: 4,
-      nome: 'Paulo Roberto',
-      iniciais: 'PR',
-      osCompletas: 35,
-      osEmAndamento: 1,
-      tempoMedioReparo: 3.1,
-      qualidade: 90,
-      especialidade: 'Motores Pesados',
-      experiencia: 10,
-      avaliacaoCliente: 4.5,
-      defeitosResolvidos: ['Vazamentos', 'Combustão'],
-      produtividade: 82,
-      pontualidade: 90,
-      status: 'ativo'
-    },
-    {
-      id: 5,
-      nome: 'Jean Santos',
-      iniciais: 'JS',
-      osCompletas: 40,
-      osEmAndamento: 2,
-      tempoMedioReparo: 2.7,
-      qualidade: 87,
-      especialidade: 'Eletrônica Automotiva',
-      experiencia: 5,
-      avaliacaoCliente: 4.3,
-      defeitosResolvidos: ['Funcionamento', 'Sensores'],
-      produtividade: 89,
-      pontualidade: 94,
-      status: 'ativo'
+  useEffect(() => {
+    const fetchMecanicos = async () => {
+      setLoading(true)
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+        const res = await fetch(`${apiUrl}/api/analises/performance-mecanicos`)
+        const json = await res.json()
+        setMecanicos(json || [])
+      } catch (e) {
+        setMecanicos([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+    fetchMecanicos()
+  }, [])
 
   const performanceComparativa = [
     { mecanico: 'Carlos E.', qualidade: 95, produtividade: 92, pontualidade: 98, satisfacao: 96 },
@@ -115,8 +50,7 @@ const MechanicsPage = () => {
   ]
 
   const filteredMecanicos = mecanicos.filter(mecanico =>
-    mecanico.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mecanico.especialidade.toLowerCase().includes(searchTerm.toLowerCase())
+    mecanico.nome && mecanico.nome.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const getQualityColor = (qualidade) => {
@@ -253,62 +187,37 @@ const MechanicsPage = () => {
 
       {/* Cards dos Mecânicos */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredMecanicos.map((mecanico) => (
-          <Card key={mecanico.id} className="hover:shadow-lg transition-shadow">
+        {filteredMecanicos.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-muted-foreground">Nenhum mecânico encontrado.</CardContent></Card>
+        ) : filteredMecanicos.map((mecanico, idx) => (
+          <Card key={mecanico.nome + idx} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-gray-100 text-gray-700 font-medium">
-                        {mecanico.iniciais}
+                        {mecanico.nome?.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${getStatusColor(mecanico.qualidade)}`}></div>
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{mecanico.nome}</h3>
-                    <p className="text-sm text-gray-600">{mecanico.especialidade}</p>
                   </div>
                 </div>
-                <Badge className={`text-xs ${getQualityColor(mecanico.qualidade)}`}>
-                  {mecanico.qualidade}%
-                </Badge>
               </div>
-
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">OS Completas</span>
-                  <span className="font-medium">{mecanico.osCompletas}</span>
+                  <span className="font-medium">{mecanico.totalOrdens ?? '-'}</span>
                 </div>
-                
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Tempo Médio</span>
-                  <span className="font-medium">{mecanico.tempoMedioReparo}h</span>
+                  <span className="text-sm text-gray-600">Valor Total</span>
+                  <span className="font-medium">R$ {mecanico.valorTotal?.toLocaleString('pt-BR', {minimumFractionDigits:2}) ?? '-'}</span>
                 </div>
-                
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Experiência</span>
-                  <span className="font-medium">{mecanico.experiencia} anos</span>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Avaliação</span>
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-medium">{mecanico.avaliacaoCliente}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-xs text-gray-600 mb-2">Especialidades:</p>
-                <div className="flex flex-wrap gap-1">
-                  {mecanico.defeitosResolvidos.map((defeito, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {defeito}
-                    </Badge>
-                  ))}
+                  <span className="text-sm text-gray-600">Média por Ordem</span>
+                  <span className="font-medium">R$ {mecanico.mediaPorOrdem?.toLocaleString('pt-BR', {minimumFractionDigits:2}) ?? '-'}</span>
                 </div>
               </div>
             </CardContent>

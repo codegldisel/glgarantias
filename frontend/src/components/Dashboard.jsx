@@ -5,14 +5,17 @@ import { Button } from '@/components/ui/button.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx'
 import { AlertTriangle, RefreshCw, FileText, TrendingUp, TrendingDown, Calendar } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [stats, setStats] = useState(null)
   const [currentMonthData, setCurrentMonthData] = useState(null)
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
 
-  const fetchData = async () => {
+  const fetchData = async (mes = selectedMonth, ano = selectedYear) => {
     try {
       setLoading(true)
       setError(false)
@@ -20,8 +23,8 @@ const Dashboard = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
       console.log('Tentando conectar com API em:', apiUrl)
       
-      // Buscar estatísticas
-      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats`, {
+      // Buscar estatísticas do mês/ano selecionado
+      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats?mes=${mes}&ano=${ano}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -36,8 +39,8 @@ const Dashboard = () => {
       console.log('Dados de estatísticas recebidos:', statsData)
       setStats(statsData)
 
-      // Buscar dados do mês atual
-      const currentMonthResponse = await fetch(`${apiUrl}/api/dashboard/current-month`, {
+      // Buscar dados do mês selecionado
+      const currentMonthResponse = await fetch(`${apiUrl}/api/dashboard/current-month?mes=${mes}&ano=${ano}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -61,11 +64,11 @@ const Dashboard = () => {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    fetchData(selectedMonth, selectedYear)
+  }, [selectedMonth, selectedYear])
 
   const handleRetry = () => {
-    fetchData()
+    fetchData(selectedMonth, selectedYear)
   }
 
   const getMonthName = (monthNumber) => {
@@ -115,14 +118,35 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Dashboard</h2>
         <p className="text-sm text-gray-600">
-          {currentMonthData ? 
-            `Ordens de serviço de ${getMonthName(currentMonthData.month)} de ${currentMonthData.year}` : 
-            'Carregando dados do mês atual...'
-          }
-        </p>
+            {`Ordens de serviço de ${getMonthName(selectedMonth)} de ${selectedYear}`}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Select value={selectedMonth} onValueChange={v => setSelectedMonth(Number(v))}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Mês" />
+            </SelectTrigger>
+            <SelectContent>
+              {[...Array(12)].map((_, i) => (
+                <SelectItem key={i+1} value={String(i+1)}>{getMonthName(i+1)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedYear} onValueChange={v => setSelectedYear(Number(v))}>
+            <SelectTrigger className="w-24">
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent>
+              {[2023, 2024, 2025, 2026].map(y => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Error Alert */}

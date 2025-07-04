@@ -17,104 +17,21 @@ const DataTable = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  // Dados mockados para demonstração
-  const mockData = [
-    {
-      id: 1,
-      numero_ordem: 'OS001234',
-      data_ordem: '2024-06-15',
-      status: 'Garantia',
-      defeito_texto_bruto: 'Motor aquecendo muito, perdendo água do radiador',
-      defeito_grupo: 'Problemas de Funcionamento/Desempenho',
-      defeito_subgrupo: 'Superaquecimento',
-      defeito_subsubgrupo: 'Com Perda de Água',
-      mecanico_responsavel: 'João Silva',
-      modelo_motor: 'MWM X10',
-      fabricante_motor: 'MWM',
-      total_pecas: 1250.00,
-      total_servico: 800.00,
-      total_geral: 2050.00,
-      classificacao_confianca: 0.95
-    },
-    {
-      id: 2,
-      numero_ordem: 'OS001235',
-      data_ordem: '2024-06-16',
-      status: 'Garantia de Oficina',
-      defeito_texto_bruto: 'Vazamento de óleo no cárter, muito óleo no chão',
-      defeito_grupo: 'Vazamentos',
-      defeito_subgrupo: 'Vazamento de Fluido',
-      defeito_subsubgrupo: 'Óleo',
-      mecanico_responsavel: 'Carlos Eduardo',
-      modelo_motor: 'Cummins ISF',
-      fabricante_motor: 'Cummins',
-      total_pecas: 450.00,
-      total_servico: 300.00,
-      total_geral: 750.00,
-      classificacao_confianca: 0.92
-    },
-    {
-      id: 3,
-      numero_ordem: 'OS001236',
-      data_ordem: '2024-06-17',
-      status: 'Garantia de Usinagem',
-      defeito_texto_bruto: 'Ruído estranho no motor, barulho de batida na biela',
-      defeito_grupo: 'Ruídos e Vibrações',
-      defeito_subgrupo: 'Ruído Interno',
-      defeito_subsubgrupo: 'Biela',
-      mecanico_responsavel: 'Paulo Roberto',
-      modelo_motor: 'Mercedes OM924',
-      fabricante_motor: 'Mercedes-Benz',
-      total_pecas: 2800.00,
-      total_servico: 1200.00,
-      total_geral: 4000.00,
-      classificacao_confianca: 0.88
-    },
-    {
-      id: 4,
-      numero_ordem: 'OS001237',
-      data_ordem: '2024-06-18',
-      status: 'Garantia',
-      defeito_texto_bruto: 'Pistão quebrado no 3º cilindro, motor travou',
-      defeito_grupo: 'Quebra/Dano Estrutural',
-      defeito_subgrupo: 'Quebra/Fratura',
-      defeito_subsubgrupo: 'Pistão',
-      mecanico_responsavel: 'Alexandre Cunha',
-      modelo_motor: 'Volvo D13',
-      fabricante_motor: 'Volvo',
-      total_pecas: 3500.00,
-      total_servico: 1800.00,
-      total_geral: 5300.00,
-      classificacao_confianca: 0.97
-    },
-    {
-      id: 5,
-      numero_ordem: 'OS001238',
-      data_ordem: '2024-06-19',
-      status: 'Garantia',
-      defeito_texto_bruto: 'Filtro errado instalado, causou problema no motor',
-      defeito_grupo: 'Erros de Montagem/Instalação',
-      defeito_subgrupo: 'Componente Incompatível/Errado',
-      defeito_subsubgrupo: 'Filtro',
-      mecanico_responsavel: 'Wilson Santos',
-      modelo_motor: 'Scania DC13',
-      fabricante_motor: 'Scania',
-      total_pecas: 180.00,
-      total_servico: 120.00,
-      total_geral: 300.00,
-      classificacao_confianca: 0.91
-    }
-  ]
-
   useEffect(() => {
-    // Simular carregamento de dados
-    const timer = setTimeout(() => {
-      setData(mockData)
-      setFilteredData(mockData)
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+        const res = await fetch(`${apiUrl}/api/ordens`)
+        const json = await res.json()
+        setData(json.data || [])
+      } catch (e) {
+        setData([])
+      } finally {
       setLoading(false)
-    }, 1000)
-
-    return () => clearTimeout(timer)
+      }
+    }
+    fetchData()
   }, [])
 
   useEffect(() => {
@@ -181,6 +98,16 @@ const DataTable = () => {
               ))}
             </div>
           </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-muted-foreground">
+          Nenhuma ordem de serviço encontrada para o período selecionado.
         </CardContent>
       </Card>
     )
@@ -295,7 +222,7 @@ const DataTable = () => {
                       </div>
                     </TableCell>
                     <TableCell>{item.mecanico_responsavel}</TableCell>
-                    <TableCell>R$ {item.total_geral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell>R$ {item.total_geral != null ? item.total_geral.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</TableCell>
                     <TableCell>
                       <span className={getConfiancaColor(item.classificacao_confianca)}>
                         {(item.classificacao_confianca * 100).toFixed(0)}%

@@ -50,23 +50,17 @@ const Reports = () => {
 
     setGenerating(true)
     
-    // Simular geração de relatório
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Aqui seria feita a chamada para a API de geração de relatórios
-    console.log('Generating report:', {
-      type: reportType,
-      dateRange,
-      filters: selectedFilters
-    })
+    // TODO: Chamar API real para geração de relatório
+    // await new Promise(resolve => setTimeout(resolve, 2000))
+    // console.log('Generating report:', { type: reportType, dateRange, filters: selectedFilters })
     
     setGenerating(false)
     
-    // Simular download do arquivo
-    const link = document.createElement('a')
-    link.href = '#'
-    link.download = `relatorio-${reportType}-${new Date().toISOString().split('T')[0]}.pdf`
-    link.click()
+    // TODO: Fazer download real do arquivo gerado pela API
+    // const link = document.createElement('a')
+    // link.href = '#'
+    // link.download = `relatorio-${reportType}-${new Date().toISOString().split('T')[0]}.pdf`
+    // link.click()
   }
 
   const handleFilterChange = (filterId, checked) => {

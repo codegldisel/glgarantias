@@ -110,22 +110,24 @@ class ExcelService {
           return null; // descartar registros inválidos
         }
 
+        const dataOrdem = ExcelService.excelSerialDateToJSDate(row["Data_OSv"]);
+
         return {
           numero_ordem: row["NOrdem_OSv"] || null,
-          data_ordem: ExcelService.excelSerialDateToJSDate(row["Data_OSv"]),
+          data_ordem: dataOrdem,
           status: this.mapStatus(row["Status_OSv"]),
           defeito_texto_bruto: defeitoTextoBruto || null,
           mecanico_responsavel: row["RazaoSocial_Cli"] || null,
           modelo_motor: row["Descricao_Mot"] || null,
           fabricante_motor: row["Fabricante_Mot"] || null,
-          dia_servico: row["DIA"] || null,
-          mes_servico: row["MÊS"] || null,
-          ano_servico: row["ANO"] || null,
+          dia_servico: dataOrdem ? dataOrdem.getDate() : null,
+          mes_servico: dataOrdem ? dataOrdem.getMonth() + 1 : null,
+          ano_servico: dataOrdem ? dataOrdem.getFullYear() : null,
           total_pecas: this.parseNumber(row["TOT. PÇ"]),
           total_servico: this.parseNumber(row["TOT. SERV."]),
           total_geral: this.parseNumber(row["TOT"]),
           cliente_nome: row["Nome_Cli"] || null,
-          data_os: ExcelService.excelSerialDateToJSDate(row["Data_OSv"]),
+          data_os: dataOrdem,
           observacoes: row["Obs_Osv"] || null,
           data_fechamento: ExcelService.excelSerialDateToJSDate(row["DataFecha_OSv"]),
         };
@@ -171,6 +173,55 @@ class ExcelService {
     }
     
     const num = parseFloat(value);
+    return isNaN(num) ? null : num;
+  }
+
+  /**
+   * Converte mês textual (ex: 'julho') para número (1-12), aceitando erros comuns de digitação e variações.
+   * @param {string|number} mes - Mês textual ou numérico
+   * @returns {number|null}
+   */
+  static parseMonth(mes) {
+    if (typeof mes === 'number') return mes;
+    if (!mes) return null;
+    // Normaliza: minúsculo, sem acento, sem espaços
+    let mesNorm = mes.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
+    // Correções de erros comuns
+    const correcoes = {
+      'setemebro': 'setembro',
+      'setemebto': 'setembro',
+      'setemrbo': 'setembro',
+      'setemro': 'setembro',
+      'setembro': 'setembro',
+      'novembro': 'novembro',
+      'novbro': 'novembro',
+      'novemrbo': 'novembro',
+      'dezembro': 'dezembro',
+      'dezembroo': 'dezembro',
+      'dezembro': 'dezembro',
+      'jan': 'janeiro',
+      'fev': 'fevereiro',
+      'mar': 'marco',
+      'abr': 'abril',
+      'mai': 'maio',
+      'jun': 'junho',
+      'jul': 'julho',
+      'ago': 'agosto',
+      'set': 'setembro',
+      'out': 'outubro',
+      'nov': 'novembro',
+      'dez': 'dezembro',
+    };
+    if (correcoes[mesNorm]) mesNorm = correcoes[mesNorm];
+    // Lista de meses válidos
+    const meses = [
+      'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    const idx = meses.findIndex(m => m === mesNorm);
+    if (idx >= 0) return idx + 1;
+    // Tenta converter para número
+    const num = parseInt(mes);
     return isNaN(num) ? null : num;
   }
 }

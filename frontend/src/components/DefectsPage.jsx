@@ -11,82 +11,50 @@ const DefectsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('todos')
   const [selectedSeverity, setSelectedSeverity] = useState('todos')
+  const [defeitos, setDefeitos] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Dados de exemplo para demonstração
-  const defeitosDetalhados = [
-    {
-      id: 1,
-      categoria: 'Vazamentos',
-      subcategoria: 'Vazamento de Fluido',
-      subsubcategoria: 'Óleo',
-      descricao: 'BAIXANDO OLEO',
-      frequencia: 45,
-      severidade: 'Alta',
-      tempoMedioReparo: 2.5,
-      custoMedio: 350.00,
-      tendencia: 'crescente'
-    },
-    {
-      id: 2,
-      categoria: 'Problemas de Funcionamento',
-      subcategoria: 'Superaquecimento',
-      subsubcategoria: 'Geral',
-      descricao: 'MOTOR AQUECENDO',
-      frequencia: 38,
-      severidade: 'Alta',
-      tempoMedioReparo: 3.2,
-      custoMedio: 480.00,
-      tendencia: 'estavel'
-    },
-    {
-      id: 3,
-      categoria: 'Ruídos e Vibrações',
-      subcategoria: 'Ruído Interno',
-      subsubcategoria: 'Mancal',
-      descricao: 'RODOU CASQUILHO',
-      frequencia: 32,
-      severidade: 'Crítica',
-      tempoMedioReparo: 4.1,
-      custoMedio: 650.00,
-      tendencia: 'decrescente'
-    },
-    {
-      id: 4,
-      categoria: 'Quebra/Dano Estrutural',
-      subcategoria: 'Quebra/Fratura',
-      subsubcategoria: 'Pistão',
-      descricao: 'PISTAO QUEBRADO',
-      frequencia: 28,
-      severidade: 'Crítica',
-      tempoMedioReparo: 5.5,
-      custoMedio: 850.00,
-      tendencia: 'estavel'
-    },
-    {
-      id: 5,
-      categoria: 'Problemas de Combustão',
-      subcategoria: 'Fumaça Excessiva',
-      subsubcategoria: 'No Respiro',
-      descricao: 'SOPRA NO RESPIRO',
-      frequencia: 25,
-      severidade: 'Média',
-      tempoMedioReparo: 2.8,
-      custoMedio: 420.00,
-      tendencia: 'crescente'
-    },
-    {
-      id: 6,
-      categoria: 'Desgaste e Folga',
-      subcategoria: 'Desgaste de Componentes',
-      subsubcategoria: 'Válvulas',
-      descricao: 'VALVULA GASTOU',
-      frequencia: 22,
-      severidade: 'Média',
-      tempoMedioReparo: 3.5,
-      custoMedio: 380.00,
-      tendencia: 'decrescente'
+  useEffect(() => {
+    const fetchDefeitos = async () => {
+      setLoading(true)
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+        const res = await fetch(`${apiUrl}/api/ordens`)
+        const json = await res.json()
+        setDefeitos(json.data || [])
+      } catch (e) {
+        setDefeitos([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+    fetchDefeitos()
+  }, [])
+
+  // Filtros e busca
+  const filteredDefects = defeitos.filter(defeito => {
+    const matchesSearch = searchTerm === '' || (
+      defeito.defeito_texto_bruto?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      defeito.defeito_grupo?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    const matchesCategory = selectedCategory === 'todos' || defeito.defeito_grupo === selectedCategory
+    // Supondo que severidade venha do campo defeito.severidade
+    const matchesSeverity = selectedSeverity === 'todos' || defeito.severidade === selectedSeverity
+    return matchesSearch && matchesCategory && matchesSeverity
+  })
+
+  // Estatísticas rápidas
+  const totalDefeitos = filteredDefects.length
+  const maisFrequente = (() => {
+    const count = {}
+    filteredDefects.forEach(d => {
+      if (d.defeito_grupo) count[d.defeito_grupo] = (count[d.defeito_grupo] || 0) + 1
+    })
+    const sorted = Object.entries(count).sort((a, b) => b[1] - a[1])
+    return sorted.length > 0 ? { categoria: sorted[0][0], ocorrencias: sorted[0][1] } : null
+  })()
+  const custoMedio = filteredDefects.length > 0 ? (filteredDefects.reduce((acc, d) => acc + (d.total_geral || 0), 0) / filteredDefects.length) : 0
+  const tempoMedio = filteredDefects.length > 0 ? (filteredDefects.reduce((acc, d) => acc + (d.tempo_reparo || 0), 0) / filteredDefects.length) : 0
 
   const defeitosPorMes = [
     { mes: 'Jan', vazamentos: 12, funcionamento: 8, ruidos: 5, quebras: 3, combustao: 4, desgaste: 2 },
@@ -96,15 +64,6 @@ const DefectsPage = () => {
     { mes: 'Mai', vazamentos: 20, funcionamento: 18, ruidos: 8, quebras: 7, combustao: 8, desgaste: 5 },
     { mes: 'Jun', vazamentos: 16, funcionamento: 14, ruidos: 10, quebras: 4, combustao: 6, desgaste: 4 }
   ]
-
-  const filteredDefects = defeitosDetalhados.filter(defeito => {
-    const matchesSearch = defeito.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         defeito.categoria.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === 'todos' || defeito.categoria === selectedCategory
-    const matchesSeverity = selectedSeverity === 'todos' || defeito.severidade === selectedSeverity
-    
-    return matchesSearch && matchesCategory && matchesSeverity
-  })
 
   const getSeverityColor = (severidade) => {
     switch (severidade) {
@@ -196,7 +155,7 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total de Defeitos</p>
-                <p className="text-2xl font-bold text-gray-900">{filteredDefects.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{totalDefeitos}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-orange-500" />
             </div>
@@ -208,8 +167,8 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Mais Frequente</p>
-                <p className="text-lg font-bold text-red-600">Vazamentos</p>
-                <p className="text-xs text-gray-500">45 ocorrências</p>
+                <p className="text-lg font-bold text-red-600">{maisFrequente ? maisFrequente.categoria : '-'}</p>
+                <p className="text-xs text-gray-500">{maisFrequente ? `${maisFrequente.ocorrencias} ocorrências` : '-'}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-red-500" />
             </div>
@@ -221,7 +180,7 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Custo Médio</p>
-                <p className="text-2xl font-bold text-blue-600">R$ 522</p>
+                <p className="text-2xl font-bold text-blue-600">{custoMedio > 0 ? `R$ ${custoMedio.toFixed(2)}` : '-'}</p>
                 <p className="text-xs text-gray-500">por reparo</p>
               </div>
               <TrendingUp className="h-8 w-8 text-blue-500" />
@@ -234,7 +193,7 @@ const DefectsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Tempo Médio</p>
-                <p className="text-2xl font-bold text-green-600">3.6h</p>
+                <p className="text-2xl font-bold text-green-600">{tempoMedio > 0 ? `${tempoMedio.toFixed(1)}h` : '-'}</p>
                 <p className="text-xs text-gray-500">de reparo</p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-500" />
@@ -297,15 +256,15 @@ const DefectsPage = () => {
                   <tr key={defeito.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4">
                       <div>
-                        <p className="font-medium text-gray-900">{defeito.descricao}</p>
+                        <p className="font-medium text-gray-900">{defeito.defeito_texto_bruto}</p>
                         <p className="text-sm text-gray-500">
-                          {defeito.subcategoria} → {defeito.subsubcategoria}
+                          {defeito.defeito_grupo} → {defeito.defeito_subgrupo}
                         </p>
                       </div>
                     </td>
                     <td className="py-3 px-4">
                       <Badge variant="outline" className="text-xs">
-                        {defeito.categoria}
+                        {defeito.defeito_grupo}
                       </Badge>
                     </td>
                     <td className="text-center py-3 px-4 font-medium">{defeito.frequencia}</td>
@@ -314,8 +273,8 @@ const DefectsPage = () => {
                         {defeito.severidade}
                       </Badge>
                     </td>
-                    <td className="text-center py-3 px-4">{defeito.tempoMedioReparo}h</td>
-                    <td className="text-center py-3 px-4">R$ {defeito.custoMedio.toFixed(2)}</td>
+                    <td className="text-center py-3 px-4">{defeito.tempo_reparo}h</td>
+                    <td className="text-center py-3 px-4">R$ {defeito.total_geral?.toFixed(2) || '-'}</td>
                     <td className="text-center py-3 px-4">
                       <div className="flex justify-center">
                         {getTrendIcon(defeito.tendencia)}

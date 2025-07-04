@@ -99,7 +99,24 @@ app.post('/api/upload', upload.single('planilha'), async (req, res) => {
 
     // 2. Ler e mapear dados do Excel
     const excelData = ExcelService.readExcelFile(filePath);
+    console.log('Total de linhas lidas da planilha:', excelData.data.length);
+
+    // Logar registros descartados por status
+    const statusValidos = ['G', 'GO', 'GU'];
+    const registrosDescartadosStatus = excelData.data.filter(row => {
+      const statusRaw = row["Status_OSv"] ? row["Status_OSv"].toString().toUpperCase().trim() : null;
+      return !statusValidos.includes(statusRaw);
+    });
+    console.log('Total de registros descartados por status != G/GO/GU:', registrosDescartadosStatus.length);
+    if (registrosDescartadosStatus.length > 0) {
+      console.log('Exemplo de registros descartados por status:', JSON.stringify(registrosDescartadosStatus.slice(0, 5), null, 2));
+    }
+
     const mappedData = ExcelService.mapExcelDataToDatabase(excelData);
+    console.log('Total de registros mapeados para o banco:', mappedData.length);
+    if (mappedData.length > 0) {
+      console.log('Exemplo de registros mapeados:', JSON.stringify(mappedData.slice(0, 5), null, 2));
+    }
 
     // 3. Classificar defeitos usando PLN e preparar para inserção
     const dataToInsert = mappedData.map(row => {
@@ -113,6 +130,21 @@ app.post('/api/upload', upload.single('planilha'), async (req, res) => {
       };
     });
 
+    // VALIDAÇÃO DE mes_servico
+    const registrosInvalidos = dataToInsert.filter(
+      (item) => !item.mes_servico || item.mes_servico < 1 || item.mes_servico > 12
+    );
+    console.log('Total de registros descartados por mes_servico inválido:', registrosInvalidos.length);
+    if (registrosInvalidos.length > 0) {
+      console.log('Exemplo de registros descartados por mes_servico inválido:', JSON.stringify(registrosInvalidos.slice(0, 5), null, 2));
+    }
+    if (registrosInvalidos.length > 0) {
+      throw new Error('Existem registros com mes_servico inválido. Corrija a planilha ou o processamento.');
+    }
+
+    // LOG DETALHADO DOS DADOS A INSERIR
+    console.log('Dados a inserir:', JSON.stringify(dataToInsert, null, 2));
+
     // 4. Inserir dados processados no Supabase
     // Usar upsert para evitar duplicatas baseadas em numero_ordem
     const { error: insertError } = await supabase
@@ -120,7 +152,7 @@ app.post('/api/upload', upload.single('planilha'), async (req, res) => {
       .upsert(dataToInsert, { onConflict: 'numero_ordem' });
 
     if (insertError) {
-      console.error('Erro ao inserir dados no Supabase:', insertError);
+      console.error('Erro ao inserir dados no Supabase:', JSON.stringify(insertError, null, 2));
       throw new Error('Falha ao salvar dados processados.');
     }
 
