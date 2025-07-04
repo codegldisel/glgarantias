@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert.jsx'
 import { Button } from '@/components/ui/button.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx'
-import { AlertTriangle, RefreshCw, FileText, TrendingUp, TrendingDown, Calendar } from 'lucide-react'
+import { AlertTriangle, RefreshCw, FileText, TrendingUp, TrendingDown, Calendar, DollarSign, Users, AlertCircle, Target, Clock, BarChart3 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 
 const Dashboard = () => {
@@ -98,6 +98,27 @@ const Dashboard = () => {
     return 'text-red-600'
   }
 
+  // Calcular métricas avançadas
+  const calculateAdvancedMetrics = () => {
+    if (!stats) return {}
+    
+    const custoMedioOS = stats.totalOS > 0 ? stats.totalGeral / stats.totalOS : 0
+    const percentualPecas = stats.totalGeral > 0 ? (stats.totalPecas / stats.totalGeral) * 100 : 0
+    const percentualServicos = stats.totalGeral > 0 ? (stats.totalServicos / stats.totalGeral) * 100 : 0
+    const osClassificadas = stats.totalOS - (stats.osNaoClassificadas || 0)
+    const taxaClassificacao = stats.totalOS > 0 ? (osClassificadas / stats.totalOS) * 100 : 0
+    
+    return {
+      custoMedioOS,
+      percentualPecas,
+      percentualServicos,
+      taxaClassificacao,
+      osClassificadas
+    }
+  }
+
+  const metrics = calculateAdvancedMetrics()
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -120,9 +141,9 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Dashboard</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Dashboard de Análise de Garantias</h2>
         <p className="text-sm text-gray-600">
-            {`Ordens de serviço de ${getMonthName(selectedMonth)} de ${selectedYear}`}
+            {`Análise detalhada de ${getMonthName(selectedMonth)} de ${selectedYear}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -173,94 +194,100 @@ const Dashboard = () => {
         </Alert>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards Aprimorados */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-6">
-        <Card className="bg-white">
+        {/* Card 1: Volume de Ordens */}
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">Total de OS</p>
-              <FileText className="h-4 w-4 text-gray-400" />
+              <p className="text-sm font-medium text-blue-700">Volume de OS</p>
+              <FileText className="h-4 w-4 text-blue-600" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-blue-900">
               {stats ? stats.totalOS.toLocaleString() : '---'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats ? 'Ordens de serviço' : 'Dados indisponíveis'}
+            <p className="text-xs text-blue-600 mt-1">
+              {stats ? 'Ordens processadas' : 'Dados indisponíveis'}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        {/* Card 2: Custo Médio por OS */}
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">Total Peças</p>
-              <TrendingUp className="h-4 w-4 text-gray-400" />
+              <p className="text-sm font-medium text-green-700">Custo Médio/OS</p>
+              <DollarSign className="h-4 w-4 text-green-600" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats ? `R$ ${stats.totalPecas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
+            <p className="text-2xl font-bold text-green-900">
+              {stats ? `R$ ${metrics.custoMedioOS.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats ? 'Valor total em peças' : 'Dados indisponíveis'}
+            <p className="text-xs text-green-600 mt-1">
+              {stats ? 'Valor médio por ordem' : 'Dados indisponíveis'}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        {/* Card 3: Taxa de Classificação */}
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">Total Serviços</p>
-              <TrendingUp className="h-4 w-4 text-gray-400" />
+              <p className="text-sm font-medium text-purple-700">Taxa Classificação</p>
+              <Target className="h-4 w-4 text-purple-600" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats ? `R$ ${stats.totalServicos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
+            <p className="text-2xl font-bold text-purple-900">
+              {stats ? `${metrics.taxaClassificacao.toFixed(1)}%` : '---'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats ? 'Valor total em serviços' : 'Dados indisponíveis'}
+            <p className="text-xs text-purple-600 mt-1">
+              {stats ? `${metrics.osClassificadas} de ${stats.totalOS} OS` : 'Dados indisponíveis'}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        {/* Card 4: Proporção Peças vs Serviços */}
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">Total Geral</p>
-              <TrendingUp className="h-4 w-4 text-gray-400" />
+              <p className="text-sm font-medium text-orange-700">Peças vs Serviços</p>
+              <BarChart3 className="h-4 w-4 text-orange-600" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats ? `R$ ${stats.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
+            <p className="text-lg font-bold text-orange-900">
+              {stats ? `${metrics.percentualPecas.toFixed(0)}% / ${metrics.percentualServicos.toFixed(0)}%` : '---'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats ? 'Valor total geral' : 'Dados indisponíveis'}
+            <p className="text-xs text-orange-600 mt-1">
+              {stats ? 'Distribuição de custos' : 'Dados indisponíveis'}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        {/* Card 5: Mecânicos Ativos */}
+        <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">Mecânicos Ativos</p>
-              <TrendingUp className="h-4 w-4 text-gray-400" />
+              <p className="text-sm font-medium text-indigo-700">Mecânicos Ativos</p>
+              <Users className="h-4 w-4 text-indigo-600" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-indigo-900">
               {stats ? stats.totalMecanicos : '---'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats ? 'Mecânicos únicos' : 'Dados indisponíveis'}
+            <p className="text-xs text-indigo-600 mt-1">
+              {stats ? `${(stats.totalOS / stats.totalMecanicos).toFixed(1)} OS/mecânico` : 'Dados indisponíveis'}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        {/* Card 6: Valor Total de Garantias */}
+        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600">Tipos de Defeitos</p>
-              <TrendingUp className="h-4 w-4 text-gray-400" />
+              <p className="text-sm font-medium text-red-700">Impacto Financeiro</p>
+              <AlertCircle className="h-4 w-4 text-red-600" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats ? stats.totalTiposDefeitos : '---'}
+            <p className="text-2xl font-bold text-red-900">
+              {stats ? `R$ ${stats.totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '---'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats ? 'Categorias de defeitos' : 'Dados indisponíveis'}
+            <p className="text-xs text-red-600 mt-1">
+              {stats ? 'Custo total de garantias' : 'Dados indisponíveis'}
             </p>
           </CardContent>
         </Card>
@@ -270,9 +297,15 @@ const Dashboard = () => {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
           <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
-          <p className="text-sm text-blue-800">
-            Os dados são atualizados automaticamente conforme novas ordens de serviço são processadas.
-          </p>
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">Insights dos Dados:</p>
+            <ul className="space-y-1 text-xs">
+              <li>• <strong>Taxa de Classificação:</strong> Indica a eficácia do sistema de PLN na categorização de defeitos</li>
+              <li>• <strong>Custo Médio/OS:</strong> Permite identificar tendências de custos e comparar períodos</li>
+              <li>• <strong>Peças vs Serviços:</strong> Mostra a distribuição de custos entre materiais e mão de obra</li>
+              <li>• <strong>OS/Mecânico:</strong> Indica a produtividade e distribuição de trabalho da equipe</li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -286,7 +319,7 @@ const Dashboard = () => {
             </CardTitle>
           </div>
           <CardDescription>
-            Dados das ordens de serviço processadas no mês atual
+            Detalhamento das ordens de serviço processadas no período selecionado
           </CardDescription>
         </CardHeader>
         <CardContent>
