@@ -1,400 +1,259 @@
 class NLPService {
   constructor() {
-    // Dicionário de classificação baseado no documento
+    // Dicionário de classificação expandido e aprimorado
     this.classificationRules = {
       'Vazamentos': {
-        keywords: ['vazamento', 'vazando', 'vaza', 'passagem', 'passou', 'passa', 'pingando', 'escorrendo', 'molhado', 'gota', 'gotas', 'esguichando'],
+        keywords: ['vazamento', 'vazando', 'vaza', 'passagem', 'passou', 'passa', 'pingando', 'escorrendo', 'molhado', 'gota', 'gotas', 'esguichando', 'gotejando', 'derramando', 'saindo', 'perdendo', 'molhou'],
         subgroups: {
           'Vazamento de Fluido': {
-            keywords: ['oleo', 'óleo', 'agua', 'água', 'combustivel', 'combustível', 'diesel', 'compressao', 'compressão', 'liquido', 'fluido', 'ar', 'aditivo', 'refrigerante'],
+            keywords: ['oleo', 'óleo', 'agua', 'água', 'combustivel', 'combustível', 'diesel', 'compressao', 'compressão', 'liquido', 'fluido', 'ar', 'aditivo', 'refrigerante', 'lubrificante', 'gasolina'],
             subsubgroups: {
               'Óleo': {
-                keywords: ['oleo', 'óleo', 'lubrificante', 'motor', 'carter', 'retentor', 'junta', 'selo', 'respiro', 'tampa de valvula', 'tampa de válvulas', 'bujão']
+                keywords: ['oleo', 'óleo', 'lubrificante', 'motor', 'carter', 'retentor', 'junta', 'selo', 'respiro', 'tampa de valvula', 'tampa de válvulas', 'bujão', 'dreno', 'filtro oleo', 'bomba oleo']
               },
               'Água': {
-                keywords: ['agua', 'água', 'radiador', 'arrefecimento', 'mangueira', 'bomba d agua', 'bomba de água', 'selo mecanico', 'selo mecânico', 'reservatorio', 'reservatório', 'vaso de expansão']
+                keywords: ['agua', 'água', 'radiador', 'arrefecimento', 'mangueira', 'bomba d agua', 'bomba de água', 'selo mecanico', 'selo mecânico', 'reservatorio', 'reservatório', 'vaso de expansão', 'intercooler', 'refrigeracao']
               },
               'Combustível': {
-                keywords: ['combustivel', 'combustível', 'diesel', 'gasolina', 'bico', 'bomba injetora', 'linha de combustivel', 'tanque']
+                keywords: ['combustivel', 'combustível', 'diesel', 'gasolina', 'bico', 'bomba injetora', 'linha de combustivel', 'tanque', 'filtro combustivel', 'injetor', 'common rail']
               },
               'Compressão': {
-                keywords: ['compressao', 'compressão', 'ar', 'valvula', 'válvula', 'anel', 'aneis', 'pistao', 'pistão', 'junta de cabeçote', 'cilindro']
+                keywords: ['compressao', 'compressão', 'ar', 'valvula', 'válvula', 'anel', 'aneis', 'pistao', 'pistão', 'junta de cabeçote', 'cilindro', 'camisa', 'sede valvula']
               }
             }
           }
         }
       },
       'Problemas de Funcionamento/Desempenho': {
-        keywords: ['aqueceu', 'aquecendo', 'superaquecimento', 'esquentou', 'perdeu', 'perda', 'potencia', 'potência', 'força', 'forca', 'falha', 'travado', 'disparou', 'consumo', 'fraco', 'sem força', 'nao liga', 'não liga', 'engasgando', 'morrendo', 'corte', 'cortando', 'oscilando', 'irregular', 'lento', 'pesado', 'nao desenvolve', 'não desenvolve', 'nao pega', 'não pega', 'dificuldade ligar', 'nao da partida', 'falhando', 'rateando', 'aceleracao', 'aceleração', 'lenta', 'alta', 'baixa'],
+        keywords: ['aqueceu', 'aquecendo', 'superaquecimento', 'esquentou', 'perdeu', 'perda', 'potencia', 'potência', 'força', 'forca', 'falha', 'travado', 'disparou', 'consumo', 'fraco', 'sem força', 'nao liga', 'não liga', 'engasgando', 'morrendo', 'corte', 'cortando', 'oscilando', 'irregular', 'lento', 'pesado', 'nao desenvolve', 'não desenvolve', 'nao pega', 'não pega', 'dificuldade ligar', 'nao da partida', 'falhando', 'rateando', 'aceleracao', 'aceleração', 'lenta', 'alta', 'baixa', 'fundiu', 'agarrou', 'travou', 'emperrou', 'parou', 'morreu'],
         subgroups: {
           'Superaquecimento': {
-            keywords: ['aqueceu', 'aquecendo', 'superaquecimento', 'esquentou', 'temperatura', 'fervendo', 'super aqueceu', 'superaquecendo', 'superaquecimento'],
+            keywords: ['aqueceu', 'aquecendo', 'superaquecimento', 'esquentou', 'temperatura', 'fervendo', 'super aqueceu', 'superaquecendo', 'superaquecimento', 'muito quente', 'alta temperatura'],
             subsubgroups: {
               'Geral': {
-                keywords: ['aqueceu', 'aquecendo', 'esquentou', 'temperatura']
+                keywords: ['aqueceu', 'aquecendo', 'esquentou', 'temperatura', 'muito quente']
               },
               'Com Perda de Água': {
-                keywords: ['agua', 'água', 'radiador', 'vazamento agua', 'vazamento água', 'fervendo agua']
+                keywords: ['agua', 'água', 'radiador', 'vazamento agua', 'vazamento água', 'fervendo agua', 'perdeu agua']
               },
               'Com Travamento': {
-                keywords: ['travado', 'travou', 'fundiu', 'motor travado', 'agarrou']
+                keywords: ['travado', 'travou', 'fundiu', 'motor travado', 'agarrou', 'emperrou', 'gripou']
               }
             }
           },
           'Perda de Potência/Falha': {
-            keywords: ['perdeu', 'perda', 'potencia', 'potência', 'força', 'forca', 'falha', 'falhava', 'fraco', 'sem força', 'nao desenvolve', 'não desenvolve', 'engasgando', 'morrendo', 'corte', 'cortando', 'falhando', 'rateando', 'oscilando', 'irregular', 'lento', 'pesado'],
+            keywords: ['perdeu', 'perda', 'potencia', 'potência', 'força', 'forca', 'falha', 'falhava', 'fraco', 'sem força', 'nao desenvolve', 'não desenvolve', 'engasgando', 'morrendo', 'corte', 'cortando', 'falhando', 'rateando', 'oscilando', 'irregular', 'lento', 'pesado', 'sem rendimento', 'baixo rendimento'],
             subsubgroups: {
               'Geral': {
-                keywords: ['perdeu', 'perda', 'potencia', 'potência', 'falha', 'falhava', 'fraco', 'sem força']
+                keywords: ['perdeu', 'perda', 'potencia', 'potência', 'falha', 'falhava', 'fraco', 'sem força', 'sem rendimento']
               },
               'Com Fumaça': {
-                keywords: ['fumaca', 'fumaça', 'sopra', 'soprando', 'fumando']
+                keywords: ['fumaca', 'fumaça', 'fumegando', 'fumando', 'fumo', 'fumacenta']
               },
               'Dificuldade de Partida': {
-                keywords: ['nao pega', 'não pega', 'partida', 'dar partida', 'dificuldade ligar', 'nao da partida', 'nao liga', 'não liga']
+                keywords: ['nao liga', 'não liga', 'nao pega', 'não pega', 'dificuldade ligar', 'nao da partida', 'partida dificil', 'custa pegar']
               }
             }
           },
-          'Alto Consumo': {
-            keywords: ['consumo', 'consumindo', 'gastando', 'gasta', 'alto consumo'],
+          'Problemas de Combustão': {
+            keywords: ['combustao', 'combustão', 'queima', 'mistura', 'injecao', 'injeção', 'alimentacao', 'alimentação', 'ar', 'filtro ar', 'turbo', 'intercooler'],
             subsubgroups: {
-              'Consumo de Óleo': {
-                keywords: ['oleo', 'óleo', 'consumo oleo', 'baixando oleo']
+              'Sistema de Alimentação': {
+                keywords: ['alimentacao', 'alimentação', 'combustivel', 'combustível', 'bomba injetora', 'bico injetor', 'filtro combustivel']
               },
-              'Consumo de Combustível': {
-                keywords: ['combustivel', 'combustível', 'diesel', 'gasolina', 'consumo combustivel', 'gastando muito']
+              'Sistema de Ar': {
+                keywords: ['ar', 'filtro ar', 'turbo', 'turbina', 'intercooler', 'admissao', 'admissão', 'coletor admissao']
               }
             }
           }
         }
       },
       'Ruídos e Vibrações': {
-        keywords: ['ruido', 'ruído', 'barulho', 'batendo', 'vibracao', 'vibração', 'grilando', 'estalando', 'chiado', 'rangido', 'assobio', 'zumbido', 'clique', 'estalido'],
+        keywords: ['ruido', 'ruído', 'barulho', 'batendo', 'batida', 'vibracao', 'vibração', 'vibrando', 'tremendo', 'chacoalhando', 'rangendo', 'chiando', 'assobiando', 'zunindo', 'estralando', 'batucada', 'pancada', 'som', 'estrondo', 'ronco', 'gemendo', 'guinchando'],
         subgroups: {
-          'Ruído Interno': {
-            keywords: ['ruido', 'ruído', 'barulho', 'batendo', 'grilando', 'estalando', 'interno', 'dentro do motor'],
+          'Ruído do Motor': {
+            keywords: ['ruido motor', 'ruído motor', 'barulho motor', 'batendo motor', 'ronco motor', 'som motor', 'motor fazendo ruido', 'motor fazendo ruído'],
             subsubgroups: {
-              'Mancal': {
-                keywords: ['mancal', 'casquilho', 'rodou casquilho', 'bronzina', 'mancal batendo']
+              'Ruído Interno': {
+                keywords: ['biela', 'pistao', 'pistão', 'valvula', 'válvula', 'comando', 'tuchos', 'balancim', 'eixo comando']
               },
-              'Biela': {
-                keywords: ['biela', 'parafuso de biela', 'pino de biela', 'biela batendo']
-              },
-              'Pistão': {
-                keywords: ['pistao', 'pistão', 'saia do pistao', 'pistao batendo']
-              },
-              'Válvula': {
-                keywords: ['valvula', 'válvula', 'tucho', 'balancim', 'valvula batendo']
-              },
-              'Virabrequim': {
-                keywords: ['virabrequim', 'eixo', 'virabrequim batendo']
+              'Ruído Externo': {
+                keywords: ['correia', 'polia', 'alternador', 'bomba agua', 'bomba direção', 'compressor ar']
               }
             }
           },
-          'Ruído Externo': {
-            keywords: ['chiado', 'rangido', 'correia', 'alternador', 'bomba hidraulica', 'externo', 'fora do motor', 'assobio', 'zumbido'],
+          'Vibração Excessiva': {
+            keywords: ['vibracao', 'vibração', 'vibrando', 'tremendo', 'chacoalhando', 'balancando', 'trepidacao', 'trepidação'],
             subsubgroups: {
-              'Correia': {
-                keywords: ['correia', 'esticador', 'chiado correia']
+              'Vibração do Motor': {
+                keywords: ['motor vibrando', 'motor tremendo', 'vibracao motor', 'vibração motor']
+              },
+              'Vibração da Transmissão': {
+                keywords: ['cambio', 'câmbio', 'transmissao', 'transmissão', 'embreagem', 'volante motor']
+              }
+            }
+          }
+        }
+      },
+      'Problemas Elétricos': {
+        keywords: ['eletrico', 'elétrico', 'eletrica', 'elétrica', 'bateria', 'alternador', 'motor de partida', 'chicote', 'fio', 'cabo', 'sensor', 'modulo', 'módulo', 'ecu', 'injecao eletronica', 'injeção eletrônica', 'luz', 'lampada', 'lâmpada', 'painel', 'rele', 'relé', 'fusivel', 'fusível'],
+        subgroups: {
+          'Sistema de Carga': {
+            keywords: ['bateria', 'alternador', 'carga', 'carregando', 'descarregando', 'voltagem', 'tensao', 'tensão'],
+            subsubgroups: {
+              'Bateria': {
+                keywords: ['bateria', 'descarregada', 'viciada', 'sulfatada', 'sem carga']
               },
               'Alternador': {
-                keywords: ['alternador', 'barulho alternador']
+                keywords: ['alternador', 'nao carrega', 'não carrega', 'sem carga', 'baixa voltagem']
+              }
+            }
+          },
+          'Sistema de Partida': {
+            keywords: ['motor de partida', 'partida', 'arranque', 'bendix', 'solenoide'],
+            subsubgroups: {
+              'Motor de Partida': {
+                keywords: ['motor de partida', 'motor partida', 'arranque', 'nao gira', 'não gira']
+              }
+            }
+          },
+          'Injeção Eletrônica': {
+            keywords: ['injecao eletronica', 'injeção eletrônica', 'ecu', 'modulo', 'módulo', 'sensor', 'chicote', 'scanner'],
+            subsubgroups: {
+              'Sensores': {
+                keywords: ['sensor', 'sonda lambda', 'sensor temperatura', 'sensor pressao', 'sensor rotacao']
               },
-              'Bomba Hidráulica': {
-                keywords: ['bomba hidraulica', 'direcao hidraulica', 'barulho bomba hidraulica']
+              'Módulo/ECU': {
+                keywords: ['ecu', 'modulo', 'módulo', 'central', 'chicote', 'fio', 'cabo']
               }
             }
           }
         }
       },
-      'Quebra/Dano Estrutural': {
-        keywords: ['quebrou', 'quebrada', 'quebrado', 'trincou', 'trinca', 'rachado', 'danificado', 'estourou', 'fratura', 'partiu', 'empenou', 'deformou', 'rompeu', 'desgastado', 'riscado', 'arranhado', 'ovalizado', 'fissura', 'fissurado'],
+      'Problemas de Refrigeração': {
+        keywords: ['refrigeracao', 'refrigeração', 'arrefecimento', 'radiador', 'ventoinha', 'bomba agua', 'bomba de água', 'termostato', 'mangueira', 'reservatorio', 'reservatório', 'intercooler', 'temperatura'],
         subgroups: {
-          'Quebra/Fratura': {
-            keywords: ['quebrou', 'quebrada', 'quebrado', 'trincou', 'trinca', 'estourou', 'partiu', 'fratura', 'rompeu', 'rachou'],
+          'Sistema de Arrefecimento': {
+            keywords: ['radiador', 'bomba agua', 'bomba de água', 'termostato', 'mangueira', 'reservatorio', 'reservatório', 'vaso expansao'],
             subsubgroups: {
-              'Virabrequim': {
-                keywords: ['virabrequim', 'eixo', 'quebrou vira', 'partiu vira']
+              'Radiador': {
+                keywords: ['radiador', 'entupido', 'obstruido', 'obstruído', 'furado', 'vazando']
               },
-              'Biela': {
-                keywords: ['biela', 'quebrou biela', 'partiu biela']
+              'Bomba d\'Água': {
+                keywords: ['bomba agua', 'bomba de água', 'bomba d agua', 'selo mecanico', 'selo mecânico', 'rolamento bomba']
               },
-              'Pistão': {
-                keywords: ['pistao', 'pistão', 'quebrou pistao', 'partiu pistao']
-              },
-              'Comando': {
-                keywords: ['comando', 'quebrou comando', 'partiu comando']
-              },
-              'Válvula': {
-                keywords: ['valvula', 'válvula', 'quebrou valvula', 'partiu valvula']
-              },
-              'Bloco': {
-                keywords: ['bloco', 'trincou bloco', 'rachou bloco', 'quebrou bloco']
-              },
-              'Cabeçote': {
-                keywords: ['cabecote', 'cabeçote', 'trincou cabecote', 'rachou cabecote', 'quebrou cabecote']
-              },
-              'Camisa': {
-                keywords: ['camisa', 'quebrou camisa', 'camisa trincada']
-              },
-              'Junta': {
-                keywords: ['junta', 'quebrou junta', 'junta queimada', 'estourou junta']
+              'Termostato': {
+                keywords: ['termostato', 'valvula termostatica', 'válvula termostática', 'nao abre', 'não abre', 'travado']
               }
             }
           },
-          'Dano por Empenamento/Deformação': {
-            keywords: ['empenou', 'deformou', 'torto', 'curvo', 'ovalizado'],
+          'Ventilação': {
+            keywords: ['ventoinha', 'eletroventilador', 'helice', 'hélice', 'correia ventoinha'],
             subsubgroups: {
-              'Cabeçote': {
-                keywords: ['cabecote', 'cabeçote', 'empenou cabecote', 'cabeçote empenado']
-              },
-              'Virabrequim': {
-                keywords: ['virabrequim', 'eixo', 'empenou vira', 'virabrequim empenado']
-              },
-              'Biela': {
-                keywords: ['biela', 'empenou biela', 'biela empenada']
-              }
-            }
-          }
-        }
-      },
-      'Problemas de Combustão/Exaustão': {
-        keywords: ['fumaca', 'fumaça', 'sopra', 'soprando', 'respiro', 'suspiro', 'escapamento', 'carbonizacao', 'carbonização', 'carbonizado', 'carbono', 'exaustor', 'entupido', 'obstruido', 'obstruído'],
-        subgroups: {
-          'Fumaça Excessiva': {
-            keywords: ['fumaca', 'fumaça', 'sopra', 'soprando', 'fumando'],
-            subsubgroups: {
-              'No Respiro': {
-                keywords: ['respiro', 'suspiro', 'fumaça respiro', 'soprando respiro']
-              },
-              'No Escapamento': {
-                keywords: ['escapamento', 'fumaça escapamento', 'soprando escapamento']
-              },
-              'Azul': {
-                keywords: ['azul', 'oleo', 'óleo', 'fumaça azul']
-              },
-              'Branca': {
-                keywords: ['branca', 'agua', 'água', 'fumaça branca']
-              },
-              'Preta': {
-                keywords: ['preta', 'combustivel', 'combustível', 'fumaça preta']
-              }
-            }
-          },
-          'Carbonização': {
-            keywords: ['carbonizacao', 'carbonização', 'carbonizado', 'carbono'],
-            subsubgroups: {
-              'Válvulas': {
-                keywords: ['valvula', 'válvula', 'carbonizacao valvula']
-              },
-              'Pistão': {
-                keywords: ['pistao', 'pistão', 'carbonizacao pistao']
-              }
-            }
-          },
-          'Obstrução/Entupimento': {
-            keywords: ['entupido', 'obstruido', 'obstruído', 'carbonizado', 'sujo'],
-            subsubgroups: {
-              'Exaustor': {
-                keywords: ['exaustor', 'exaustor entupido']
-              },
-              'Filtro': {
-                keywords: ['filtro', 'filtro entupido', 'filtro sujo']
-              }
-            }
-          }
-        }
-      },
-      'Desgaste e Folga': {
-        keywords: ['desgaste', 'desgastou', 'gastou', 'folga', 'folgas', 'ovalizado', 'riscado', 'arranhado', 'gripado', 'apertado', 'preso', 'emperrado'],
-        subgroups: {
-          'Desgaste de Componentes': {
-            keywords: ['desgaste', 'desgastou', 'gastou', 'ovalizado', 'riscado', 'arranhado', 'gripado'],
-            subsubgroups: {
-              'Mancais': {
-                keywords: ['mancal', 'mancais', 'casquilho', 'desgaste mancal', 'bronzina']
-              },
-              'Camisas': {
-                keywords: ['camisa', 'camisas', 'desgaste camisa', 'camisa riscada', 'camisa ovalizada']
-              },
-              'Anéis de Pistão': {
-                keywords: ['anel', 'aneis', 'anéis', 'desgaste anel', 'anel gasto']
-              },
-              'Válvulas': {
-                keywords: ['valvula', 'válvula', 'valvulas', 'válvulas', 'desgaste valvula', 'valvula gasta']
-              },
-              'Virabrequim': {
-                keywords: ['virabrequim', 'eixo', 'desgaste virabrequim', 'virabrequim riscado']
-              },
-              'Pistão': {
-                keywords: ['pistao', 'pistão', 'desgaste pistao', 'pistao gasto']
-              }
-            }
-          },
-          'Folga Excessiva': {
-            keywords: ['folga', 'folgas', 'folga excessiva', 'folgado'],
-            subsubgroups: {
-              'Mancais': {
-                keywords: ['mancal', 'mancais', 'folga mancal']
-              },
-              'Biela': {
-                keywords: ['biela', 'folga biela']
-              },
-              'Pistão': {
-                keywords: ['pistao', 'pistão', 'folga pistao']
-              },
-              'Virabrequim': {
-                keywords: ['virabrequim', 'eixo', 'folga virabrequim']
-              },
-              'Polia': {
-                keywords: ['polia', 'folga polia']
-              }
-            }
-          },
-          'Componente Preso/Apertado': {
-            keywords: ['preso', 'apertado', 'emperrado', 'travado', 'prendendo'],
-            subsubgroups: {
-              'Eixo': {
-                keywords: ['eixo', 'eixo preso', 'eixo travado', 'prendendo eixo']
-              },
-              'Pistão': {
-                keywords: ['pistao', 'pistão', 'pistao preso']
+              'Ventoinha': {
+                keywords: ['ventoinha', 'eletroventilador', 'nao liga', 'não liga', 'quebrada']
               }
             }
           }
         }
       },
       'Problemas de Lubrificação': {
-        keywords: ['pressao', 'pressão', 'oleo', 'óleo', 'baixa pressao', 'baixa pressão', 'sem pressao', 'sem pressão', 'bomba de oleo', 'bomba de óleo', 'filtro de oleo', 'filtro de óleo', 'nivel de oleo', 'nível de óleo', 'falta de oleo', 'falta de óleo'],
+        keywords: ['lubrificacao', 'lubrificação', 'oleo', 'óleo', 'bomba oleo', 'bomba de óleo', 'filtro oleo', 'filtro de óleo', 'pressao oleo', 'pressão óleo', 'carter', 'respiro'],
         subgroups: {
-          'Baixa Pressão de Óleo': {
-            keywords: ['baixa pressao', 'baixa pressão', 'pressao baixa', 'pressão baixa', 'sem pressao', 'sem pressão', 'luz de oleo acesa', 'luz de óleo acesa'],
+          'Sistema de Óleo': {
+            keywords: ['oleo', 'óleo', 'bomba oleo', 'bomba de óleo', 'filtro oleo', 'filtro de óleo', 'pressao oleo', 'pressão óleo'],
             subsubgroups: {
-              'Bomba de óleo com defeito': {
-                keywords: ['bomba', 'bomba de oleo', 'bomba de óleo', 'bomba oleo', 'bomba de oleo com defeito']
+              'Bomba de Óleo': {
+                keywords: ['bomba oleo', 'bomba de óleo', 'pressao baixa', 'pressão baixa', 'sem pressao', 'sem pressão']
               },
-              'Filtro de óleo obstruído': {
-                keywords: ['filtro', 'filtro de oleo', 'filtro de óleo', 'filtro sujo', 'filtro obstruido']
-              },
-              'Sensor de pressão com defeito': {
-                keywords: ['sensor', 'interruptor', 'cebolinha', 'sensor oleo', 'sensor de pressão']
-              },
-              'Falta de Óleo': {
-                keywords: ['falta de oleo', 'falta de óleo', 'nivel baixo', 'nível baixo']
-              },
-              'Geral': {
-                keywords: ['lubrificacao', 'lubrificação', 'problema oleo', 'problema de lubrificacao']
+              'Filtro de Óleo': {
+                keywords: ['filtro oleo', 'filtro de óleo', 'entupido', 'sujo', 'obstruido', 'obstruído']
               }
             }
           }
         }
       },
-      'Erros de Montagem/Instalação': {
-        keywords: ['montagem', 'instalacao', 'instalação', 'erro', 'errado', 'incorreto', 'danificado na montagem', 'matou', 'mal montado', 'mal instalado', 'trocado', 'desalinhado', 'apertado demais', 'frouxo', 'incompativel', 'incompatível', 'mal encaixado', 'mal ajustado'],
+      'Problemas de Transmissão': {
+        keywords: ['cambio', 'câmbio', 'transmissao', 'transmissão', 'embreagem', 'volante', 'platô', 'disco', 'rolamento', 'sincronizador', 'marcha', 'engrenagem'],
         subgroups: {
-          'Componente Incompatível/Errado': {
-            keywords: ['errado', 'incorreto', 'incompativel', 'incompatível', 'peca errada', 'peça errada', 'componente errado', 'trocado'],
+          'Embreagem': {
+            keywords: ['embreagem', 'platô', 'disco embreagem', 'disco de embreagem', 'rolamento embreagem', 'patinando', 'escorregando'],
             subsubgroups: {
-              'Filtro': {
-                keywords: ['filtro', 'filtro errado']
+              'Disco de Embreagem': {
+                keywords: ['disco embreagem', 'disco de embreagem', 'patinando', 'escorregando', 'gasto', 'queimado']
               },
-              'Pistão': {
-                keywords: ['pistao', 'pistão', 'pistao errado']
-              },
-              'Geral': {
-                keywords: ['peca', 'peça', 'componente', 'incompativel', 'item errado']
+              'Platô': {
+                keywords: ['platô', 'plato', 'molas platô', 'molas plato', 'dedos platô']
               }
             }
           },
-          'Montagem Incorreta': {
-            keywords: ['montagem', 'instalacao', 'instalação', 'danificado na montagem', 'matou', 'mal montado', 'mal instalado', 'apertado demais', 'frouxo', 'desalinhado', 'mal encaixado', 'mal ajustado', 'junta torta'],
+          'Caixa de Câmbio': {
+            keywords: ['cambio', 'câmbio', 'caixa cambio', 'caixa de câmbio', 'marcha', 'engrenagem', 'sincronizador'],
             subsubgroups: {
-              'Geral': {
-                keywords: ['montagem', 'instalacao', 'instalação', 'mal montado', 'mal instalado']
+              'Sincronizadores': {
+                keywords: ['sincronizador', 'sincrono', 'síncrono', 'marcha dura', 'nao entra marcha', 'não entra marcha']
               },
-              'Junta': {
-                keywords: ['junta', 'junta mal montada', 'junta torta']
-              },
-              'Cabeçote': {
-                keywords: ['cabecote', 'cabeçote', 'cabeçote mal montado']
-              }
-            }
-          },
-          'Erro de Análise/Diagnóstico': {
-            keywords: ['erro de analise', 'erro de análise', 'diagnostico errado', 'diagnóstico errado', 'avaliação precipitada'],
-            subsubgroups: {
-              'Geral': {
-                keywords: ['erro', 'analise', 'análise', 'diagnostico', 'diagnóstico']
+              'Engrenagens': {
+                keywords: ['engrenagem', 'dente quebrado', 'dente gasto', 'marcha saltando']
               }
             }
           }
         }
       },
-      'Outros': {
-        keywords: ['geral', 'diversos', 'outros', 'varios', 'vários', 'nao especificado', 'não especificado', 'revisao', 'revisão', 'manutencao', 'manutenção', 'eletrico', 'elétrico', 'hidraulico', 'hidráulico', 'compressor', 'freio', 'direcao', 'direção', 'suspensao', 'suspensão', 'pneu', 'pneus', 'roda', 'rodas', 'chassi', 'carroceria', 'acessorios', 'acessórios', 'limpeza', 'ajuste', 'regulagem', 'alinhamento', 'balanceamento', 'teste', 'testes', 'orcamento', 'orçamento', 'servico', 'serviço', 'patio', 'pátio', 'cortesia', 'defeito', 'problema'],
+      'Desgaste/Manutenção': {
+        keywords: ['desgaste', 'gasto', 'usado', 'vencido', 'fim de vida', 'manutencao', 'manutenção', 'preventiva', 'corretiva', 'troca', 'substituicao', 'substituição', 'revisao', 'revisão', 'ajuste', 'regulagem'],
         subgroups: {
-          'Manutenção Geral': {
-            keywords: ['manutencao', 'manutenção', 'revisao', 'revisão', 'preventiva', 'ajuste', 'regulagem', 'alinhamento', 'balanceamento', 'limpeza']
+          'Desgaste Natural': {
+            keywords: ['desgaste', 'gasto', 'usado', 'fim de vida', 'vencido', 'normal', 'natural'],
+            subsubgroups: {
+              'Peças de Desgaste': {
+                keywords: ['pastilha', 'lona', 'disco freio', 'tambor', 'correia', 'filtro', 'vela', 'cabo vela']
+              }
+            }
           },
-          'Problema Elétrico': {
-            keywords: ['eletrico', 'elétrico', 'fio', 'sensor', 'modulo', 'módulo', 'bateria', 'alternador', 'motor de partida', 'chicote']
-          },
-          'Problema Hidráulico': {
-            keywords: ['hidraulico', 'hidráulico', 'bomba', 'cilindro', 'mangueira', 'direcao hidraulica', 'freio hidraulico']
-          },
-          'Problemas de Componentes Externos': {
-            keywords: ['compressor', 'freio', 'direcao', 'direção', 'suspensao', 'suspensão', 'pneu', 'pneus', 'roda', 'rodas', 'chassi', 'carroceria', 'acessorios', 'acessórios']
-          },
-          'Serviços Administrativos/Não Defeito': {
-            keywords: ['orcamento', 'orçamento', 'servico', 'serviço', 'patio', 'pátio', 'cortesia', 'teste', 'testes', 'cotacao', 'cotação', 'exclusiva', 'documentacao', 'documentação', 'referencia', 'referência']
-          },
-          'Defeito Genérico': {
-            keywords: ['defeito', 'problema', 'nao funciona', 'não funciona', 'parou de funcionar', 'que nao procede', 'deu problema']
+          'Manutenção Preventiva': {
+            keywords: ['manutencao', 'manutenção', 'preventiva', 'revisao', 'revisão', 'troca oleo', 'troca de óleo', 'filtros'],
+            subsubgroups: {
+              'Troca de Fluidos': {
+                keywords: ['troca oleo', 'troca de óleo', 'oleo vencido', 'óleo vencido', 'fluido freio', 'agua radiador']
+              },
+              'Troca de Filtros': {
+                keywords: ['filtro ar', 'filtro combustivel', 'filtro oleo', 'filtro cabine']
+              }
+            }
           }
         }
       }
     };
   }
 
-  /**
-   * Pré-processa o texto para classificação
-   * @param {string} text - Texto a ser processado
-   * @returns {string} Texto processado
-   */
+  // Função para pré-processar o texto
   preprocessText(text) {
-    if (!text) return '';
+    if (!text || typeof text !== 'string') {
+      return '';
+    }
     
     return text
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Remove acentos
       .replace(/[^\w\s]/g, ' ') // Remove pontuação
-      .replace(/\s+/g, ' ') // Remove espaços extras
+      .replace(/\s+/g, ' ') // Remove espaços múltiplos
       .trim();
   }
 
-  /**
-   * Verifica se alguma palavra-chave está presente no texto
-   * @param {string} text - Texto a ser verificado
-   * @param {Array} keywords - Array de palavras-chave
-   * @returns {boolean} True se alguma palavra-chave for encontrada
-   */
-  containsKeywords(text, keywords) {
-    return keywords.some(keyword => {
-      const normalizedKeyword = this.preprocessText(keyword);
-      // Use a regex para garantir que a palavra-chave seja encontrada como uma palavra inteira
-      // ou parte de uma palavra, dependendo da necessidade. Aqui, buscando como substring.
-      return text.includes(normalizedKeyword);
-    });
+  // Função para verificar se uma palavra-chave está presente no texto
+  containsKeyword(text, keyword) {
+    const processedText = this.preprocessText(text);
+    const processedKeyword = this.preprocessText(keyword);
+    
+    // Verifica se a palavra-chave está presente como palavra completa ou parte de palavra
+    return processedText.includes(processedKeyword);
   }
 
-  /**
-   * Classifica um defeito em Grupo, Subgrupo e Subsubgrupo
-   * @param {string} defectDescription - Descrição do defeito
-   * @returns {Object} Classificação do defeito
-   */
-  classifyDefect(defectDescription) {
-    if (!defectDescription) {
+  // Função principal de classificação
+  classifyDefect(defectText) {
+    if (!defectText || typeof defectText !== 'string') {
       return {
         grupo: 'Não Classificado',
         subgrupo: 'Não Classificado',
@@ -403,19 +262,30 @@ class NLPService {
       };
     }
 
-    const processedText = this.preprocessText(defectDescription);
+    const processedText = this.preprocessText(defectText);
     
     // Buscar por grupos
     for (const [groupName, groupData] of Object.entries(this.classificationRules)) {
-      if (this.containsKeywords(processedText, groupData.keywords)) {
-        
+      // Verificar se alguma palavra-chave do grupo está presente
+      const groupMatch = groupData.keywords.some(keyword => 
+        this.containsKeyword(processedText, keyword)
+      );
+      
+      if (groupMatch) {
         // Buscar por subgrupos
         for (const [subgroupName, subgroupData] of Object.entries(groupData.subgroups || {})) {
-          if (this.containsKeywords(processedText, subgroupData.keywords)) {
-            
+          const subgroupMatch = subgroupData.keywords.some(keyword => 
+            this.containsKeyword(processedText, keyword)
+          );
+          
+          if (subgroupMatch) {
             // Buscar por subsubgrupos
             for (const [subsubgroupName, subsubgroupData] of Object.entries(subgroupData.subsubgroups || {})) {
-              if (this.containsKeywords(processedText, subsubgroupData.keywords)) {
+              const subsubgroupMatch = subsubgroupData.keywords.some(keyword => 
+                this.containsKeyword(processedText, keyword)
+              );
+              
+              if (subsubgroupMatch) {
                 return {
                   grupo: groupName,
                   subgrupo: subgroupName,
@@ -425,6 +295,7 @@ class NLPService {
               }
             }
             
+            // Se encontrou subgrupo mas não subsubgrupo
             return {
               grupo: groupName,
               subgrupo: subgroupName,
@@ -434,6 +305,7 @@ class NLPService {
           }
         }
         
+        // Se encontrou grupo mas não subgrupo
         return {
           grupo: groupName,
           subgrupo: 'Geral',
@@ -442,7 +314,8 @@ class NLPService {
         };
       }
     }
-
+    
+    // Se não encontrou nenhuma classificação
     return {
       grupo: 'Não Classificado',
       subgrupo: 'Não Classificado',
@@ -451,11 +324,7 @@ class NLPService {
     };
   }
 
-  /**
-   * Classifica múltiplos defeitos
-   * @param {Array} defects - Array de descrições de defeitos
-   * @returns {Array} Array de classificações
-   */
+  // Função para classificar múltiplos defeitos
   classifyMultipleDefects(defects) {
     return defects.map(defect => ({
       original: defect,
@@ -465,5 +334,4 @@ class NLPService {
 }
 
 module.exports = NLPService;
-
 

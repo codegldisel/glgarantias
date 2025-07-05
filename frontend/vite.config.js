@@ -6,10 +6,12 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(),tailwindcss()],
-  server: { host: true, allowedHosts: ["5173-idc5x65xsujbvc6mmkcws-4dea558c.manusvm.computer", "3000-idc5x65xsujbvc6mmkcws-4dea558c.manusvm.computer"] },
+  server: { host: true, allowedHosts: ["5173-i9cwjojv8nmya9k92zlwu-45743584.manusvm.computer"] },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
 })
+
+
