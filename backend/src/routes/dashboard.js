@@ -7,9 +7,42 @@ router.get('/stats', async (req, res) => {
   try {
     // Permitir filtro por mês/ano via query
     let { mes, ano } = req.query;
-    const now = new Date();
-    if (!mes) mes = now.getMonth() + 1;
-    if (!ano) ano = now.getFullYear();
+    
+    // Se não especificado, usar o mês/ano com mais dados disponíveis
+    if (!mes || !ano) {
+      const { data: topMonthYear, error: topError } = await supabase
+        .from('ordens_servico')
+        .select('mes_servico, ano_servico')
+        .not('mes_servico', 'is', null)
+        .not('ano_servico', 'is', null);
+
+      if (topError) {
+        console.error('Erro ao buscar mês/ano com mais dados:', topError);
+        return res.status(500).json({ error: 'Erro ao buscar dados' });
+      }
+
+      // Contar ocorrências de cada mês/ano
+      const monthYearCount = {};
+      topMonthYear.forEach(record => {
+        const key = `${record.mes_servico}-${record.ano_servico}`;
+        monthYearCount[key] = (monthYearCount[key] || 0) + 1;
+      });
+
+      // Encontrar o mês/ano com mais registros
+      const topEntry = Object.entries(monthYearCount)
+        .sort(([,a], [,b]) => b - a)[0];
+      
+      if (topEntry) {
+        const [topKey] = topEntry;
+        const [topMes, topAno] = topKey.split('-');
+        mes = topMes;
+        ano = topAno;
+      } else {
+        // Fallback para maio/2017 se não encontrar dados
+        mes = 5;
+        ano = 2017;
+      }
+    }
 
     // Buscar estatísticas filtradas
     const { data: ordensServico, error: ordensError } = await supabase
@@ -43,7 +76,9 @@ router.get('/stats', async (req, res) => {
       totalServicos,
       totalGeral,
       totalMecanicos,
-      totalTiposDefeitos
+      totalTiposDefeitos,
+      mes: parseInt(mes),
+      ano: parseInt(ano)
     });
 
   } catch (error) {
@@ -118,9 +153,42 @@ router.get('/charts', async (req, res) => {
 router.get('/current-month', async (req, res) => {
   try {
     let { mes, ano } = req.query;
-    const now = new Date();
-    if (!mes) mes = now.getMonth() + 1;
-    if (!ano) ano = now.getFullYear();
+    
+    // Se não especificado, usar o mês/ano com mais dados disponíveis
+    if (!mes || !ano) {
+      const { data: topMonthYear, error: topError } = await supabase
+        .from('ordens_servico')
+        .select('mes_servico, ano_servico')
+        .not('mes_servico', 'is', null)
+        .not('ano_servico', 'is', null);
+
+      if (topError) {
+        console.error('Erro ao buscar mês/ano com mais dados:', topError);
+        return res.status(500).json({ error: 'Erro ao buscar dados' });
+      }
+
+      // Contar ocorrências de cada mês/ano
+      const monthYearCount = {};
+      topMonthYear.forEach(record => {
+        const key = `${record.mes_servico}-${record.ano_servico}`;
+        monthYearCount[key] = (monthYearCount[key] || 0) + 1;
+      });
+
+      // Encontrar o mês/ano com mais registros
+      const topEntry = Object.entries(monthYearCount)
+        .sort(([,a], [,b]) => b - a)[0];
+      
+      if (topEntry) {
+        const [topKey] = topEntry;
+        const [topMes, topAno] = topKey.split('-');
+        mes = topMes;
+        ano = topAno;
+      } else {
+        // Fallback para maio/2017 se não encontrar dados
+        mes = 5;
+        ano = 2017;
+      }
+    }
 
     console.log(`Buscando dados para: ${mes}/${ano}`);
 

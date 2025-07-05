@@ -10,23 +10,25 @@ class ExcelService {
     if (typeof serial !== 'number' || isNaN(serial)) {
       return null;
     }
-    const utc_days  = Math.floor(serial - 25569);
-    const utc_value = utc_days * 86400;
-    const date_info = new Date(utc_value * 1000);
+    // Excel armazena datas a partir de 1 de janeiro de 1900. JavaScript a partir de 1 de janeiro de 1970.
+    // O offset de 25569 é para datas a partir de 1900. Para datas a partir de 1970, o offset é diferente.
+    // Vamos usar a abordagem de adicionar dias ao epoch do JS.
+    const MS_PER_DAY = 24 * 60 * 60 * 1000; // Milissegundos em um dia
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // 30 de dezembro de 1899
+    const date = new Date(excelEpoch.getTime() + serial * MS_PER_DAY);
 
-    const fractional_day = serial - Math.floor(serial) + 0.0000001; 
+    // Ajuste para o fuso horário local, se necessário. No momento, retorna UTC.
+    // Para garantir que a data seja interpretada como UTC e evitar problemas de fuso horário
+    // ao criar o objeto Date, podemos extrair os componentes e criar uma data UTC.
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const seconds = date.getUTCSeconds();
 
-    let total_seconds = Math.floor(86400 * fractional_day);
+    const resultDate = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
 
-    const seconds = total_seconds % 60;
-    total_seconds -= seconds;
-
-    const minutes = total_seconds / 60 % 60;
-    total_seconds -= minutes * 60;
-
-    const hours = Math.floor(total_seconds / 3600);
-
-    const resultDate = new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds);
     if (isNaN(resultDate.getTime())) {
       return null;
     }

@@ -23,8 +23,8 @@ const Dashboard = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
       console.log('Tentando conectar com API em:', apiUrl)
       
-      // Buscar estatísticas do mês/ano selecionado
-      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats?mes=${mes}&ano=${ano}`, {
+      // Buscar estatísticas sem especificar mês/ano para usar dados disponíveis
+      const statsResponse = await fetch(`${apiUrl}/api/dashboard/stats`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -39,8 +39,14 @@ const Dashboard = () => {
       console.log('Dados de estatísticas recebidos:', statsData)
       setStats(statsData)
 
+      // Atualizar mês/ano selecionado com os dados reais retornados
+      if (statsData.mes && statsData.ano) {
+        setSelectedMonth(statsData.mes)
+        setSelectedYear(statsData.ano)
+      }
+
       // Buscar dados do mês selecionado
-      const currentMonthResponse = await fetch(`${apiUrl}/api/dashboard/current-month?mes=${mes}&ano=${ano}`, {
+      const currentMonthResponse = await fetch(`${apiUrl}/api/dashboard/current-month`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -89,6 +95,27 @@ const Dashboard = () => {
         return 'outline'
       default:
         return 'default'
+    }
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === 'N/A') {
+      return 'N/A'
+    }
+    
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        return 'N/A'
+      }
+      
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+    } catch (error) {
+      return 'N/A'
     }
   }
 
@@ -344,7 +371,7 @@ const Dashboard = () => {
                   {currentMonthData.data.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.numero_ordem}</TableCell>
-                      <TableCell>{item.data_ordem}</TableCell>
+                      <TableCell>{formatDate(item.data_ordem)}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(item.status)}>
                           {item.status}
