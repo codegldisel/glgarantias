@@ -1,280 +1,247 @@
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { Button } from '@/components/ui/button.jsx'
-import { Input } from '@/components/ui/input.jsx'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
-import { Badge } from '@/components/ui/badge.jsx'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx'
-import { Search, Filter, Download, Calendar } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
+import { Button } from '@/components/ui/button.jsx';
+import { Input } from '@/components/ui/input.jsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog.jsx';
+import { DatePickerWithRange } from '@/components/ui/date-picker.jsx';
+import { Search, Edit, X, AlertTriangle } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 
 const DataTable = () => {
-  const [data, setData] = useState([])
-  const [filteredData, setFilteredData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [defeitoFilter, setDefeitoFilter] = useState('all')
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const [orders, setOrders] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 30, total: 0, totalPages: 1 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all',
+    mecanico: 'all',
+    dateRange: { from: null, to: null },
+  });
+  const debouncedSearch = useDebounce(filters.search, 500);
+
+  const [filterOptions, setFilterOptions] = useState({ status: [], mecanicos: [], defeito_grupos: [] });
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [newClassification, setNewClassification] = useState('');
+
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        page: pagination.page,
+        limit: pagination.limit,
+      });
+      if (debouncedSearch) params.append('search', debouncedSearch);
+      if (filters.status !== 'all') params.append('status', filters.status);
+      if (filters.mecanico !== 'all') params.append('mecanico', filters.mecanico);
+      if (filters.dateRange.from) params.append('startDate', filters.dateRange.from.toISOString().split('T')[0]);
+      if (filters.dateRange.to) params.append('endDate', filters.dateRange.to.toISOString().split('T')[0]);
+
+      const res = await fetch(`${apiUrl}/api/ordens?${params.toString()}`);
+      if (!res.ok) throw new Error('Falha ao carregar os dados.');
+      const json = await res.json();
+      
+      setOrders(json.data || []);
+      setPagination(json.pagination);
+    } catch (e) {
+      setError(e.message);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, pagination.limit, debouncedSearch, filters, apiUrl]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
+    const fetchOptions = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-        // Busca um número grande de registros para simular o carregamento de "todos" os dados
-        const res = await fetch(`${apiUrl}/api/ordens?limit=10000`) 
-        const json = await res.json()
-        setData(json.data || [])
+        const res = await fetch(`${apiUrl}/api/ordens/filters/options`);
+        const json = await res.json();
+        setFilterOptions(json);
       } catch (e) {
-        setData([])
-      } finally {
-      setLoading(false)
+        console.error("Falha ao buscar opções de filtro:", e);
       }
-    }
-    fetchData()
-  }, [])
+    };
+    fetchOptions();
+  }, [apiUrl]);
 
   useEffect(() => {
-    let filtered = data
+    fetchOrders();
+  }, [fetchOrders]);
 
-    // Filtro por termo de busca
-    if (searchTerm) {
-      filtered = filtered.filter(item =>
-        item.numero_ordem.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.defeito_texto_bruto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.mecanico_responsavel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.modelo_motor.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const clearFilters = () => {
+    setFilters({ search: '', status: 'all', mecanico: 'all', dateRange: { from: null, to: null } });
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const handleClassifyClick = (order) => {
+    setSelectedOrder(order);
+    setNewClassification(order.defeito_grupo || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveClassification = async () => {
+    if (!selectedOrder || !newClassification) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/ordens/${selectedOrder.id}/classificar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defeito_grupo: newClassification }),
+      });
+      if (!res.ok) throw new Error('Falha ao salvar a classificação.');
+      
+      fetchOrders();
+      setIsModalOpen(false);
+      setSelectedOrder(null);
+    } catch (e) {
+      alert(e.message);
     }
-
-    // Filtro por status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(item => item.status === statusFilter)
-    }
-
-    // Filtro por tipo de defeito
-    if (defeitoFilter !== 'all') {
-      filtered = filtered.filter(item => item.defeito_grupo === defeitoFilter)
-    }
-
-    setFilteredData(filtered)
-    setCurrentPage(1)
-  }, [data, searchTerm, statusFilter, defeitoFilter])
-
-  const getStatusBadgeVariant = (status) => {
-    switch (status) {
-      case 'Garantia':
-        return 'default'
-      case 'Garantia de Oficina':
-        return 'secondary'
-      case 'Garantia de Usinagem':
-        return 'outline'
-      default:
-        return 'default'
-    }
-  }
-
-  const getConfiancaColor = (confianca) => {
-    if (confianca >= 0.9) return 'text-green-600'
-    if (confianca >= 0.7) return 'text-yellow-600'
-    return 'text-red-600'
-  }
-
-  // Paginação
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentData = filteredData.slice(startIndex, endIndex)
-
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-muted rounded w-1/4"></div>
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-12 bg-muted rounded"></div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (!data || data.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
-          Nenhuma ordem de serviço encontrada para o período selecionado.
-        </CardContent>
-      </Card>
-    )
-  }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Dados Brutos das Ordens de Serviço
-          </CardTitle>
-          <CardDescription>
-            Visualize e filtre todos os dados processados das planilhas Excel
-          </CardDescription>
+          <CardTitle>Ordens de Serviço</CardTitle>
+          <CardDescription>Visualize, filtre e classifique todas as ordens de serviço.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Filtros */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por OS, defeito, mecânico ou motor..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filtrar por status" />
-              </SelectTrigger>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Input
+              placeholder="Buscar por OS ou defeito..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="lg:col-span-2"
+            />
+            <Select value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
+              <SelectTrigger><SelectValue placeholder="Filtrar por status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="Garantia">Garantia</SelectItem>
-                <SelectItem value="Garantia de Oficina">Garantia de Oficina</SelectItem>
-                <SelectItem value="Garantia de Usinagem">Garantia de Usinagem</SelectItem>
+                {filterOptions.status.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-
-            <Select value={defeitoFilter} onValueChange={setDefeitoFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filtrar por defeito" />
-              </SelectTrigger>
+            <Select value={filters.mecanico} onValueChange={(v) => handleFilterChange('mecanico', v)}>
+              <SelectTrigger><SelectValue placeholder="Filtrar por mecânico" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os Defeitos</SelectItem>
-                <SelectItem value="Vazamentos">Vazamentos</SelectItem>
-                <SelectItem value="Problemas de Funcionamento/Desempenho">Funcionamento/Desempenho</SelectItem>
-                <SelectItem value="Ruídos e Vibrações">Ruídos e Vibrações</SelectItem>
-                <SelectItem value="Quebra/Dano Estrutural">Quebra/Dano Estrutural</SelectItem>
-                <SelectItem value="Erros de Montagem/Instalação">Erros de Montagem</SelectItem>
+                <SelectItem value="all">Todos os Mecânicos</SelectItem>
+                {filterOptions.mecanicos.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
               </SelectContent>
             </Select>
-
-            <Button variant="outline" className="w-full sm:w-auto">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
+            <DatePickerWithRange
+              date={filters.dateRange}
+              onDateChange={(range) => handleFilterChange('dateRange', range)}
+              className="lg:col-span-2"
+            />
+            <Button onClick={clearFilters} variant="outline" className="lg:col-span-2">
+              <X className="mr-2 h-4 w-4" /> Limpar Filtros
             </Button>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Informações de resultado */}
-          <div className="flex justify-between items-center text-sm text-muted-foreground">
-            <span>
-              Mostrando {startIndex + 1}-{Math.min(endIndex, filteredData.length)} de {filteredData.length} registros
-            </span>
-            <span>
-              Total de {data.length} ordens de serviço
-            </span>
-          </div>
-
-          {/* Tabela */}
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>OS</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Fabricante</TableHead>
-                  <TableHead>Motor</TableHead>
-                  <TableHead>Defeito</TableHead>
-                  <TableHead>Classificação</TableHead>
-                  <TableHead>Mecânico</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Confiança</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentData.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.numero_ordem}</TableCell>
-                    <TableCell>{new Date(item.data_ordem).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(item.status)}>
-                        {item.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{item.fabricante_motor}</TableCell>
-                    <TableCell>{item.modelo_motor}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={item.defeito_texto_bruto}>
-                      {item.defeito_texto_bruto}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-xs">
-                        <div className="font-medium">{item.defeito_grupo}</div>
-                        <div className="text-muted-foreground">{item.defeito_subgrupo}</div>
-                        <div className="text-muted-foreground">{item.defeito_subsubgrupo}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.mecanico_responsavel}</TableCell>
-                    <TableCell>R$ {item.total_geral != null ? item.total_geral.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</TableCell>
-                    <TableCell>
-                      <span className={getConfiancaColor(item.classificacao_confianca)}>
-                        {(item.classificacao_confianca * 100).toFixed(0)}%
-                      </span>
-                    </TableCell>
+      <Card className="flex-1 flex flex-col overflow-hidden">
+        <CardContent className="flex-1 overflow-y-auto p-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">Carregando...</div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-full text-red-600"><AlertTriangle className="mr-2" />{error}</div>
+          ) : (
+            <div style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', width: '100%' }}>
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="w-[100px]">OS</TableHead>
+                    <TableHead className="w-[120px]">Data</TableHead>
+                    <TableHead>Fabricante</TableHead>
+                    <TableHead className="w-[150px]">Modelo Motor</TableHead>
+                    <TableHead>Defeito (Classificado)</TableHead>
+                    <TableHead>Mecânico</TableHead>
+                    <TableHead className="w-[130px]">Total Peças</TableHead>
+                    <TableHead className="w-[130px]">Total Serviços</TableHead>
+                    <TableHead className="w-[130px]">Total Geral</TableHead>
+                    <TableHead className="w-[80px]">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Paginação */}
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </Button>
-              
-              <div className="flex gap-1">
-                {[...Array(totalPages)].map((_, i) => (
-                  <Button
-                    key={i}
-                    variant={currentPage === i + 1 ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
-                  </Button>
-                ))}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-              >
-                Próximo
-              </Button>
+                </TableHeader>
+                <TableBody>
+                  {orders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.numero_ordem}</TableCell>
+                      <TableCell>{new Date(order.data_ordem).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{order.fabricante_motor}</TableCell>
+                      <TableCell className="truncate" title={order.modelo_motor}>{order.modelo_motor}</TableCell>
+                      <TableCell className="truncate" title={order.defeito_grupo}>{order.defeito_grupo || 'Não Classificado'}</TableCell>
+                      <TableCell className="truncate" title={order.mecanico_responsavel}>{order.mecanico_responsavel}</TableCell>
+                      <TableCell>R$ {order.total_pecas?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell>R$ {order.total_servico?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell>R$ {order.total_geral?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => handleClassifyClick(order)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
       </Card>
+      
+      {!loading && !error && (
+        <div className="flex-shrink-0 flex items-center justify-between text-sm text-muted-foreground">
+          <span>Página {pagination.page} de {pagination.totalPages}</span>
+          <div className="flex gap-2">
+            <Button onClick={() => setPagination(p => ({...p, page: p.page - 1}))} disabled={pagination.page <= 1} size="sm">Anterior</Button>
+            <Button onClick={() => setPagination(p => ({...p, page: p.page + 1}))} disabled={pagination.page >= pagination.totalPages} size="sm">Próximo</Button>
+          </div>
+          <span>Total de {pagination.total} registros</span>
+        </div>
+      )}
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Classificar Ordem de Serviço</DialogTitle>
+            <DialogDescription>OS: {selectedOrder?.numero_ordem}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <h4 className="font-semibold mb-2">Defeito Reportado:</h4>
+              <p className="text-sm p-3 bg-muted rounded-md">{selectedOrder?.defeito_texto_bruto}</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2">Nova Classificação:</h4>
+              <Select value={newClassification} onValueChange={setNewClassification}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um grupo de defeito" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filterOptions.defeito_grupos.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveClassification}>Salvar Classificação</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
-}
+  );
+};
 
-export default DataTable
-
+export default DataTable;

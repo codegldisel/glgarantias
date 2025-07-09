@@ -94,7 +94,7 @@ function App() {
                   }`}
                 >
                   <Icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="font-medium whitespace-nowrap">{item.label}</span>
                 </button>
               )
             })}
@@ -124,7 +124,7 @@ function App() {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-6 overflow-hidden">
           {renderContent()}
         </main>
       </div>

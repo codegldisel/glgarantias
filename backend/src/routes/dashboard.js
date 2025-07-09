@@ -2,6 +2,41 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 
+// Função auxiliar para buscar estatísticas de um período
+const getDashboardStats = async (ano, mes) => {
+  const { data, error } = await supabase
+    .from('ordens_servico')
+    .select('total_pecas, total_servico, total_geral, mecanico_responsavel, defeito_grupo')
+    .eq('ano_servico', ano)
+    .eq('mes_servico', mes);
+
+  if (error) {
+    console.error(`Erro ao buscar dados para ${mes}/${ano}:`, error);
+    throw new Error('Erro ao buscar dados do dashboard.');
+  }
+
+  const totalOS = data.length;
+  if (totalOS === 0) {
+    return { totalOS: 0, totalPecas: 0, totalServicos: 0, totalGeral: 0, totalMecanicos: 0, osNaoClassificadas: 0 };
+  }
+
+  const totalPecas = data.reduce((sum, os) => sum + (os.total_pecas || 0), 0);
+  const totalServicos = data.reduce((sum, os) => sum + (os.total_servico || 0), 0);
+  const totalGeral = data.reduce((sum, os) => sum + (os.total_geral || 0), 0);
+  const mecanicosUnicos = new Set(data.map(os => os.mecanico_responsavel).filter(Boolean));
+  const osNaoClassificadas = data.filter(os => !os.defeito_grupo || os.defeito_grupo === 'Não Classificado').length;
+
+  return {
+    totalOS,
+    totalPecas,
+    totalServicos,
+    totalGeral,
+    totalMecanicos: mecanicosUnicos.size,
+    osNaoClassificadas,
+  };
+};
+
+
 // Rota para buscar todos os anos e meses disponíveis que possuem dados
 router.get('/available-dates', async (req, res) => {
   try {
@@ -33,10 +68,18 @@ router.get('/available-dates', async (req, res) => {
       return acc;
     }, { years: [], monthsByYear: {} });
 
-    // Ordenar os meses dentro de cada ano
-    for (const year in availableDates.monthsByYear) {
-      availableDates.monthsByYear[year].sort((a, b) => b - a);
+    // Para cada ano, garantir que todos os meses de 1 a 12 estejam presentes
+    for (const year of availableDates.years) {
+      const monthsSet = new Set(availableDates.monthsByYear[year]);
+      for (let m = 1; m <= 12; m++) {
+        monthsSet.add(m);
+      }
+      // Ordenar meses em ordem crescente
+      availableDates.monthsByYear[year] = Array.from(monthsSet).sort((a, b) => a - b);
     }
+
+    // Ordenar anos em ordem decrescente
+    availableDates.years.sort((a, b) => b - a);
 
     res.json(availableDates);
 
@@ -58,37 +101,27 @@ router.get('/data', async (req, res) => {
     const anoInt = parseInt(ano);
     const mesInt = parseInt(mes);
 
-    const { data: ordensServico, error } = await supabase
-      .from('ordens_servico')
-      .select('*')
-      .eq('ano_servico', anoInt)
-      .eq('mes_servico', mesInt);
-
-    if (error) {
-      console.error(`Erro ao buscar dados para ${mes}/${ano}:`, error);
-      return res.status(500).json({ error: 'Erro ao buscar dados do dashboard.' });
+    // Calcular mês/ano anterior
+    let prevMes = mesInt - 1;
+    let prevAno = anoInt;
+    if (prevMes === 0) {
+      prevMes = 12;
+      prevAno = anoInt - 1;
     }
 
-    // 1. Calcular Estatísticas (Stats)
-    const totalOS = ordensServico.length;
-    const totalPecas = ordensServico.reduce((sum, os) => sum + (os.total_pecas || 0), 0);
-    const totalServicos = ordensServico.reduce((sum, os) => sum + (os.total_servico || 0), 0);
-    const totalGeral = ordensServico.reduce((sum, os) => sum + (os.total_geral || 0), 0);
-    const mecanicosUnicos = new Set(ordensServico.map(os => os.mecanico_responsavel).filter(Boolean));
-    const osNaoClassificadas = ordensServico.filter(os => !os.defeito_grupo || os.defeito_grupo === 'Não Classificado').length;
+    // Buscar dados do mês atual e do anterior em paralelo
+    const [stats, previousMonthStats, { data: ordensServico, error: tableError }] = await Promise.all([
+      getDashboardStats(anoInt, mesInt),
+      getDashboardStats(prevAno, prevMes),
+      supabase.from('ordens_servico').select('*').eq('ano_servico', anoInt).eq('mes_servico', mesInt)
+    ]);
 
-    const stats = {
-      totalOS,
-      totalPecas,
-      totalServicos,
-      totalGeral,
-      totalMecanicos: mecanicosUnicos.size,
-      osNaoClassificadas,
-      mes: mesInt,
-      ano: anoInt,
-    };
+    if (tableError) {
+      console.error(`Erro ao buscar dados da tabela para ${mes}/${ano}:`, tableError);
+      return res.status(500).json({ error: 'Erro ao buscar dados da tabela.' });
+    }
 
-    // 2. Formatar Dados da Tabela
+    // Formatar Dados da Tabela
     const tableData = ordensServico.map(os => ({
       id: os.id,
       numero_ordem: os.numero_ordem || 'N/A',
@@ -103,9 +136,10 @@ router.get('/data', async (req, res) => {
       confianca: os.classificacao_confianca || 0
     }));
 
-    // 3. Retornar objeto unificado
+    // Retornar objeto unificado
     res.json({
       stats,
+      previousMonthStats,
       tableData,
       month: mesInt,
       year: anoInt,

@@ -2,50 +2,40 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 
-// Rota para listar ordens de serviço com filtros
+// Rota para listar ordens de serviço com filtros avançados e paginação
 router.get('/', async (req, res) => {
   try {
     const { 
       page = 1, 
-      limit = 10, 
+      limit = 30, // Aumentado o limite padrão para 30
       status, 
-      defeito_grupo, 
-      mecanico_responsavel,
-      mes_servico,
-      ano_servico 
+      mecanico,
+      startDate,
+      endDate,
+      search // Busca por texto em numero_ordem ou defeito_texto_bruto
     } = req.query;
 
-    // Construir query base
     let query = supabase
       .from('ordens_servico')
       .select('*', { count: 'exact' });
 
-    // Aplicar filtros
-    if (status) {
-      query = query.eq('status', status);
-    }
+    // Filtros
+    if (status) query = query.eq('status', status);
+    if (mecanico) query = query.eq('mecanico_responsavel', mecanico);
+    if (startDate) query = query.gte('data_ordem', startDate);
+    if (endDate) query = query.lte('data_ordem', endDate);
     
-    if (defeito_grupo) {
-      query = query.eq('defeito_grupo', defeito_grupo);
-    }
-    
-    if (mecanico_responsavel) {
-      query = query.eq('mecanico_responsavel', mecanico_responsavel);
-    }
-    
-    if (mes_servico) {
-      query = query.eq('mes_servico', parseInt(mes_servico));
-    }
-    
-    if (ano_servico) {
-      query = query.eq('ano_servico', parseInt(ano_servico));
+    // Filtro de busca textual
+    if (search) {
+      // A busca será feita no número da ordem OU no texto do defeito
+      query = query.or(`numero_ordem.ilike.%${search}%,defeito_texto_bruto.ilike.%${search}%`);
     }
 
-    // Aplicar paginação
+    // Paginação
     const offset = (page - 1) * limit;
     query = query
       .range(offset, offset + parseInt(limit) - 1)
-      .order('numero_ordem', { ascending: false });
+      .order('data_ordem', { ascending: false }); // Ordenar pelos mais recentes
 
     const { data, error, count } = await query;
 
@@ -70,56 +60,67 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Rota para buscar uma ordem específica
-router.get('/:id', async (req, res) => {
+// Rota para atualizar a classificação de uma OS
+router.put('/:id/classificar', async (req, res) => {
   try {
     const { id } = req.params;
+    const { defeito_grupo } = req.body;
+
+    if (!defeito_grupo) {
+      return res.status(400).json({ error: 'O campo "defeito_grupo" é obrigatório.' });
+    }
 
     const { data, error } = await supabase
       .from('ordens_servico')
-      .select('*')
+      .update({ 
+        defeito_grupo: defeito_grupo,
+        status: 'Analisado' // Opcional: Mudar status para "Analisado" ao classificar
+      })
       .eq('id', id)
+      .select()
       .single();
 
     if (error) {
-      console.error('Erro ao buscar ordem de serviço:', error);
-      return res.status(404).json({ error: 'Ordem de serviço não encontrada' });
+      console.error('Erro ao atualizar ordem de serviço:', error);
+      return res.status(500).json({ error: 'Não foi possível atualizar a classificação.' });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Ordem de serviço não encontrada.' });
     }
 
     res.json(data);
 
   } catch (error) {
-    console.error('Erro no endpoint /ordens/:id:', error);
+    console.error('Erro no endpoint /ordens/:id/classificar:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// Rota para buscar filtros disponíveis
+
+// Rota para buscar valores únicos para os filtros
 router.get('/filters/options', async (req, res) => {
   try {
-    const { data: ordensServico, error } = await supabase
+    // Buscar todos os dados necessários em uma única consulta para otimizar
+    const { data, error } = await supabase
       .from('ordens_servico')
-      .select('status, defeito_grupo, mecanico_responsavel, mes_servico, ano_servico')
-      .range(0, 9999); // Remove o limite padrão de 1000 linhas
+      .select('status, mecanico_responsavel, defeito_grupo')
+      .limit(10000); // Pegar um grande número de registros para garantir que todas as opções apareçam
 
     if (error) {
       console.error('Erro ao buscar opções de filtro:', error);
-      return res.status(500).json({ error: 'Erro ao buscar dados' });
+      return res.status(500).json({ error: 'Erro ao buscar dados para filtros' });
     }
 
-    // Extrair valores únicos para cada filtro
-    const statusOptions = [...new Set(ordensServico.map(os => os.status).filter(Boolean))];
-    const defeitoGrupoOptions = [...new Set(ordensServico.map(os => os.defeito_grupo).filter(Boolean))];
-    const mecanicoOptions = [...new Set(ordensServico.map(os => os.mecanico_responsavel).filter(Boolean))];
-    const mesOptions = [...new Set(ordensServico.map(os => os.mes_servico).filter(Boolean))].sort((a, b) => a - b);
-    const anoOptions = [...new Set(ordensServico.map(os => os.ano_servico).filter(Boolean))].sort((a, b) => b - a);
+    // Processar os dados no JS para extrair valores únicos
+    const status = [...new Set(data.map(item => item.status).filter(Boolean))].sort();
+    const mecanicos = [...new Set(data.map(item => item.mecanico_responsavel).filter(Boolean))].sort();
+    const defeito_grupos = [...new Set(data.map(item => item.defeito_grupo).filter(Boolean))].sort();
 
     res.json({
-      status: statusOptions,
-      defeito_grupo: defeitoGrupoOptions,
-      mecanico_responsavel: mecanicoOptions,
-      mes_servico: mesOptions,
-      ano_servico: anoOptions
+      status,
+      mecanicos,
+      defeito_grupos,
     });
 
   } catch (error) {
@@ -127,6 +128,7 @@ router.get('/filters/options', async (req, res) => {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
+
 
 module.exports = router;
 
