@@ -22,7 +22,8 @@ const DataTable = () => {
       setLoading(true)
       try {
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-        const res = await fetch(`${apiUrl}/api/ordens`)
+        // Busca um número grande de registros para simular o carregamento de "todos" os dados
+        const res = await fetch(`${apiUrl}/api/ordens?limit=10000`) 
         const json = await res.json()
         setData(json.data || [])
       } catch (e) {

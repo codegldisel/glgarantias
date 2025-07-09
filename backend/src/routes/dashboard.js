@@ -2,209 +2,94 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 
-// Rota para estatísticas do dashboard
-router.get('/stats', async (req, res) => {
+// Rota para buscar todos os anos e meses disponíveis que possuem dados
+router.get('/available-dates', async (req, res) => {
   try {
-    // Permitir filtro por mês/ano via query
-    let { mes, ano } = req.query;
-    
-    // Se não especificado, usar o mês/ano com mais dados disponíveis
-    if (!mes || !ano) {
-      const { data: topMonthYear, error: topError } = await supabase
-        .from('ordens_servico')
-        .select('mes_servico, ano_servico')
-        .not('mes_servico', 'is', null)
-        .not('ano_servico', 'is', null);
+    const { data, error } = await supabase
+      .from('ordens_servico')
+      .select('ano_servico, mes_servico')
+      .not('ano_servico', 'is', null)
+      .not('mes_servico', 'is', null)
+      .order('ano_servico', { ascending: false })
+      .order('mes_servico', { ascending: false })
+      .range(0, 9999); // Remove o limite padrão de 1000 linhas, buscando até 10000 resultados
 
-      if (topError) {
-        console.error('Erro ao buscar mês/ano com mais dados:', topError);
-        return res.status(500).json({ error: 'Erro ao buscar dados' });
-      }
-
-      // Contar ocorrências de cada mês/ano
-      const monthYearCount = {};
-      topMonthYear.forEach(record => {
-        const key = `${record.mes_servico}-${record.ano_servico}`;
-        monthYearCount[key] = (monthYearCount[key] || 0) + 1;
-      });
-
-      // Encontrar o mês/ano com mais registros
-      const topEntry = Object.entries(monthYearCount)
-        .sort(([,a], [,b]) => b - a)[0];
-      
-      if (topEntry) {
-        const [topKey] = topEntry;
-        const [topMes, topAno] = topKey.split('-');
-        mes = topMes;
-        ano = topAno;
-      } else {
-        // Fallback para maio/2017 se não encontrar dados
-        mes = 5;
-        ano = 2017;
-      }
+    if (error) {
+      console.error('Erro ao buscar datas disponíveis:', error);
+      return res.status(500).json({ error: 'Erro ao buscar dados de datas.' });
     }
 
-    // Buscar estatísticas filtradas
-    const { data: ordensServico, error: ordensError } = await supabase
+    // Criar uma lista única de anos e de meses por ano
+    const availableDates = data.reduce((acc, { ano_servico, mes_servico }) => {
+      if (!acc.years.includes(ano_servico)) {
+        acc.years.push(ano_servico);
+      }
+      const yearData = acc.monthsByYear[ano_servico];
+      if (yearData && !yearData.includes(mes_servico)) {
+        acc.monthsByYear[ano_servico].push(mes_servico);
+      } else if (!yearData) {
+        acc.monthsByYear[ano_servico] = [mes_servico];
+      }
+      return acc;
+    }, { years: [], monthsByYear: {} });
+
+    // Ordenar os meses dentro de cada ano
+    for (const year in availableDates.monthsByYear) {
+      availableDates.monthsByYear[year].sort((a, b) => b - a);
+    }
+
+    res.json(availableDates);
+
+  } catch (error) {
+    console.error('Erro no endpoint /available-dates:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota unificada para buscar todos os dados do dashboard para um mês/ano específico
+router.get('/data', async (req, res) => {
+  const { ano, mes } = req.query;
+
+  if (!ano || !mes) {
+    return res.status(400).json({ error: 'Os parâmetros "ano" e "mes" são obrigatórios.' });
+  }
+
+  try {
+    const anoInt = parseInt(ano);
+    const mesInt = parseInt(mes);
+
+    const { data: ordensServico, error } = await supabase
       .from('ordens_servico')
       .select('*')
-      .eq('mes_servico', parseInt(mes))
-      .eq('ano_servico', parseInt(ano));
+      .eq('ano_servico', anoInt)
+      .eq('mes_servico', mesInt);
 
-    if (ordensError) {
-      console.error('Erro ao buscar ordens de serviço:', ordensError);
-      return res.status(500).json({ error: 'Erro ao buscar dados' });
+    if (error) {
+      console.error(`Erro ao buscar dados para ${mes}/${ano}:`, error);
+      return res.status(500).json({ error: 'Erro ao buscar dados do dashboard.' });
     }
 
-    // Calcular estatísticas
+    // 1. Calcular Estatísticas (Stats)
     const totalOS = ordensServico.length;
     const totalPecas = ordensServico.reduce((sum, os) => sum + (os.total_pecas || 0), 0);
     const totalServicos = ordensServico.reduce((sum, os) => sum + (os.total_servico || 0), 0);
     const totalGeral = ordensServico.reduce((sum, os) => sum + (os.total_geral || 0), 0);
-    
-    // Contar mecânicos únicos
     const mecanicosUnicos = new Set(ordensServico.map(os => os.mecanico_responsavel).filter(Boolean));
-    const totalMecanicos = mecanicosUnicos.size;
-    
-    // Contar tipos de defeitos únicos
-    const defeitosUnicos = new Set(ordensServico.map(os => os.defeito_grupo).filter(Boolean));
-    const totalTiposDefeitos = defeitosUnicos.size;
+    const osNaoClassificadas = ordensServico.filter(os => !os.defeito_grupo || os.defeito_grupo === 'Não Classificado').length;
 
-    res.json({
+    const stats = {
       totalOS,
       totalPecas,
       totalServicos,
       totalGeral,
-      totalMecanicos,
-      totalTiposDefeitos,
-      mes: parseInt(mes),
-      ano: parseInt(ano)
-    });
+      totalMecanicos: mecanicosUnicos.size,
+      osNaoClassificadas,
+      mes: mesInt,
+      ano: anoInt,
+    };
 
-  } catch (error) {
-    console.error('Erro no endpoint /stats:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-// Rota para dados de gráficos
-router.get('/charts', async (req, res) => {
-  try {
-    const { data: ordensServico, error } = await supabase
-      .from('ordens_servico')
-      .select('*');
-
-    if (error) {
-      console.error('Erro ao buscar dados para gráficos:', error);
-      return res.status(500).json({ error: 'Erro ao buscar dados' });
-    }
-
-    // Gráfico de defeitos por grupo
-    const defeitosPorGrupo = {};
-    ordensServico.forEach(os => {
-      const grupo = os.defeito_grupo || 'Não Classificado';
-      defeitosPorGrupo[grupo] = (defeitosPorGrupo[grupo] || 0) + 1;
-    });
-
-    const chartDefeitos = Object.entries(defeitosPorGrupo).map(([nome, valor]) => ({
-      nome,
-      valor
-    }));
-
-    // Gráfico de status
-    const statusCount = {};
-    ordensServico.forEach(os => {
-      const status = os.status || 'Não Informado';
-      statusCount[status] = (statusCount[status] || 0) + 1;
-    });
-
-    const chartStatus = Object.entries(statusCount).map(([nome, valor]) => ({
-      nome,
-      valor
-    }));
-
-    // Gráfico temporal (por mês)
-    const ordensTemporais = {};
-    ordensServico.forEach(os => {
-      if (os.mes_servico && os.ano_servico) {
-        const chave = `${os.mes_servico}/${os.ano_servico}`;
-        ordensTemporais[chave] = (ordensTemporais[chave] || 0) + 1;
-      }
-    });
-
-    const chartTemporal = Object.entries(ordensTemporais).map(([periodo, quantidade]) => ({
-      periodo,
-      quantidade
-    }));
-
-    res.json({
-      defeitosPorGrupo: chartDefeitos,
-      statusDistribuicao: chartStatus,
-      ordensTemporais: chartTemporal
-    });
-
-  } catch (error) {
-    console.error('Erro no endpoint /charts:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-// Rota para dados do mês selecionado
-router.get('/current-month', async (req, res) => {
-  try {
-    let { mes, ano } = req.query;
-    
-    // Se não especificado, usar o mês/ano com mais dados disponíveis
-    if (!mes || !ano) {
-      const { data: topMonthYear, error: topError } = await supabase
-        .from('ordens_servico')
-        .select('mes_servico, ano_servico')
-        .not('mes_servico', 'is', null)
-        .not('ano_servico', 'is', null);
-
-      if (topError) {
-        console.error('Erro ao buscar mês/ano com mais dados:', topError);
-        return res.status(500).json({ error: 'Erro ao buscar dados' });
-      }
-
-      // Contar ocorrências de cada mês/ano
-      const monthYearCount = {};
-      topMonthYear.forEach(record => {
-        const key = `${record.mes_servico}-${record.ano_servico}`;
-        monthYearCount[key] = (monthYearCount[key] || 0) + 1;
-      });
-
-      // Encontrar o mês/ano com mais registros
-      const topEntry = Object.entries(monthYearCount)
-        .sort(([,a], [,b]) => b - a)[0];
-      
-      if (topEntry) {
-        const [topKey] = topEntry;
-        const [topMes, topAno] = topKey.split('-');
-        mes = topMes;
-        ano = topAno;
-      } else {
-        // Fallback para maio/2017 se não encontrar dados
-        mes = 5;
-        ano = 2017;
-      }
-    }
-
-    console.log(`Buscando dados para: ${mes}/${ano}`);
-
-    const { data: ordensServico, error } = await supabase
-      .from('ordens_servico')
-      .select('*')
-      .eq('mes_servico', parseInt(mes))
-      .eq('ano_servico', parseInt(ano));
-
-    if (error) {
-      console.error('Erro ao buscar dados do mês selecionado:', error);
-      return res.status(500).json({ error: 'Erro ao buscar dados' });
-    }
-
-    // Formatar dados para a tabela
-    const formattedData = ordensServico.map(os => ({
+    // 2. Formatar Dados da Tabela
+    const tableData = ordensServico.map(os => ({
       id: os.id,
       numero_ordem: os.numero_ordem || 'N/A',
       data_ordem: os.data_ordem || 'N/A',
@@ -212,24 +97,24 @@ router.get('/current-month', async (req, res) => {
       fabricante_motor: os.fabricante_motor || 'N/A',
       modelo_motor: os.modelo_motor || 'N/A',
       defeito: os.defeito_texto_bruto || 'N/A',
-      classificacao: os.defeito_grupo || 'N/A',
+      classificacao: os.defeito_grupo || 'Não Classificado',
       mecanico: os.mecanico_responsavel || 'N/A',
       total: os.total_geral || 0,
       confianca: os.classificacao_confianca || 0
     }));
 
+    // 3. Retornar objeto unificado
     res.json({
-      data: formattedData,
-      total: formattedData.length,
-      month: parseInt(mes),
-      year: parseInt(ano)
+      stats,
+      tableData,
+      month: mesInt,
+      year: anoInt,
     });
 
   } catch (error) {
-    console.error('Erro no endpoint /current-month:', error);
+    console.error('Erro no endpoint /data:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
 module.exports = router;
-

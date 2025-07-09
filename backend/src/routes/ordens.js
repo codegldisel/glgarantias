@@ -99,7 +99,8 @@ router.get('/filters/options', async (req, res) => {
   try {
     const { data: ordensServico, error } = await supabase
       .from('ordens_servico')
-      .select('status, defeito_grupo, mecanico_responsavel, mes_servico, ano_servico');
+      .select('status, defeito_grupo, mecanico_responsavel, mes_servico, ano_servico')
+      .range(0, 9999); // Remove o limite padrão de 1000 linhas
 
     if (error) {
       console.error('Erro ao buscar opções de filtro:', error);

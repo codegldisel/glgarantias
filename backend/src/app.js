@@ -118,7 +118,7 @@ app.post('/api/upload', upload.single('planilha'), async (req, res) => {
       console.log('Exemplo de registros mapeados:', JSON.stringify(mappedData.slice(0, 5), null, 2));
     }
 
-    // 3. Classificar defeitos usando PLN e preparar para inserção
+    // Validação de mes_servico foi removida para permitir a importação de dados com datas a serem corrigidas posteriormente.
     const dataToInsert = mappedData.map(row => {
       const classification = nlpService.classifyDefect(row.defeito_texto_bruto);
       return {
@@ -129,18 +129,6 @@ app.post('/api/upload', upload.single('planilha'), async (req, res) => {
         classificacao_confianca: classification.confianca
       };
     });
-
-    // VALIDAÇÃO DE mes_servico
-    const registrosInvalidos = dataToInsert.filter(
-      (item) => !item.mes_servico || item.mes_servico < 1 || item.mes_servico > 12
-    );
-    console.log('Total de registros descartados por mes_servico inválido:', registrosInvalidos.length);
-    if (registrosInvalidos.length > 0) {
-      console.log('Exemplo de registros descartados por mes_servico inválido:', JSON.stringify(registrosInvalidos.slice(0, 5), null, 2));
-    }
-    if (registrosInvalidos.length > 0) {
-      throw new Error('Existem registros com mes_servico inválido. Corrija a planilha ou o processamento.');
-    }
 
     // LOG DETALHADO DOS DADOS A INSERIR
     console.log('Dados a inserir:', JSON.stringify(dataToInsert, null, 2));

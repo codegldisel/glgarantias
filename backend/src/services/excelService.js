@@ -6,33 +6,52 @@ class ExcelService {
    * @param {number} serial - Número de série da data do Excel.
    * @returns {Date|null} Objeto Date do JavaScript ou null se inválido.
    */
-  static excelSerialDateToJSDate(serial) {
-    if (typeof serial !== 'number' || isNaN(serial)) {
+  static excelSerialDateToJSDate(cellValue) {
+    if (cellValue === null || cellValue === undefined) {
       return null;
     }
-    // Excel armazena datas a partir de 1 de janeiro de 1900. JavaScript a partir de 1 de janeiro de 1970.
-    // O offset de 25569 é para datas a partir de 1900. Para datas a partir de 1970, o offset é diferente.
-    // Vamos usar a abordagem de adicionar dias ao epoch do JS.
-    const MS_PER_DAY = 24 * 60 * 60 * 1000; // Milissegundos em um dia
-    const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // 30 de dezembro de 1899
-    const date = new Date(excelEpoch.getTime() + serial * MS_PER_DAY);
 
-    // Ajuste para o fuso horário local, se necessário. No momento, retorna UTC.
-    // Para garantir que a data seja interpretada como UTC e evitar problemas de fuso horário
-    // ao criar o objeto Date, podemos extrair os componentes e criar uma data UTC.
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const seconds = date.getUTCSeconds();
-
-    const resultDate = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-
-    if (isNaN(resultDate.getTime())) {
-      return null;
+    // Se for um número, tratar como data serial do Excel
+    if (typeof cellValue === 'number' && isFinite(cellValue)) {
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      const date = new Date(excelEpoch.getTime() + cellValue * 24 * 60 * 60 * 1000);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
     }
-    return resultDate;
+
+    // Se for uma string, tentar analisar formatos comuns
+    if (typeof cellValue === 'string') {
+      // Formato: DD/MM/YYYY ou DD-MM-YYYY
+      const matchDMY = cellValue.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+      if (matchDMY) {
+        const [, day, month, year] = matchDMY.map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        if (!isNaN(date.getTime())) return date;
+      }
+
+      // Formato: YYYY-MM-DD (padrão ISO)
+      const matchYMD = cellValue.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+      if (matchYMD) {
+        const [, year, month, day] = matchYMD.map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        if (!isNaN(date.getTime())) return date;
+      }
+      
+      // Tentar parsing direto, pode funcionar para formatos como 'YYYY-MM-DDTHH:mm:ss.sssZ'
+      const directDate = new Date(cellValue);
+      if (!isNaN(directDate.getTime())) {
+        return directDate;
+      }
+    }
+    
+    // Se for um objeto Date, retornar diretamente
+    if (cellValue instanceof Date && !isNaN(cellValue.getTime())) {
+        return cellValue;
+    }
+
+    console.warn(`[excelService] Não foi possível converter o valor de data:`, cellValue);
+    return null;
   }
 
   /**
@@ -96,50 +115,70 @@ class ExcelService {
    * @returns {Array} Dados mapeados e filtrados para o banco
    */
   static mapExcelDataToDatabase(excelData) {
-    try {
-      const mappedData = excelData.data.map(row => {
-        let defeitoTextoBruto = row["ObsCorpo_OSv"];
-        if (!defeitoTextoBruto) {
-          defeitoTextoBruto = row["Obs_Osv"];
-        }
-        if (!defeitoTextoBruto) {
-          defeitoTextoBruto = row["Descricao_TSr"];
-        }
+    const mappedData = [];
+    const warnings = [];
 
-        // Filtrar status válidos
-        const statusRaw = row["Status_OSv"] ? row["Status_OSv"].toString().toUpperCase().trim() : null;
-        if (!["G", "GO", "GU"].includes(statusRaw)) {
-          return null; // descartar registros inválidos
-        }
+    for (const [index, row] of excelData.data.entries()) {
+      const originalRowNumber = index + 2;
 
-        const dataOrdem = ExcelService.excelSerialDateToJSDate(row["Data_OSv"]);
+      const numeroOrdem = row["NOrdem_OSv"];
+      if (!numeroOrdem) {
+        warnings.push({ row: originalRowNumber, reason: "Linha descartada: Número da Ordem (NOrdem_OSv) está ausente." });
+        continue;
+      }
 
-        return {
-          numero_ordem: row["NOrdem_OSv"] || null,
-          data_ordem: dataOrdem,
-          status: this.mapStatus(row["Status_OSv"]),
-          defeito_texto_bruto: defeitoTextoBruto || null,
-          mecanico_responsavel: row["RazaoSocial_Cli"] || null,
-          modelo_motor: row["Descricao_Mot"] || null,
-          fabricante_motor: row["Fabricante_Mot"] || null,
-          dia_servico: dataOrdem ? dataOrdem.getDate() : null,
-          mes_servico: dataOrdem ? dataOrdem.getMonth() + 1 : null,
-          ano_servico: dataOrdem ? dataOrdem.getFullYear() : null,
-          total_pecas: this.parseNumber(row["TOT. PÇ"]),
-          total_servico: this.parseNumber(row["TOT. SERV."]),
-          total_geral: this.parseNumber(row["TOT"]),
-          cliente_nome: row["Nome_Cli"] || null,
-          data_os: dataOrdem,
-          observacoes: row["Obs_Osv"] || null,
-          data_fechamento: ExcelService.excelSerialDateToJSDate(row["DataFecha_OSv"]),
-        };
-      }).filter(Boolean); // remove nulls
+      const status = this.mapStatus(row["Status_OSv"]);
+      if (!status) {
+        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Status inválido ou não é de garantia ('${row["Status_OSv"]}').` });
+        continue;
+      }
 
-      return mappedData;
-    } catch (error) {
-      console.error('Erro ao mapear e filtrar dados do Excel:', error);
-      throw error;
+      let dataOrdem = ExcelService.excelSerialDateToJSDate(row["Data_OSv"]);
+      let anoServico = null;
+      let mesServico = null;
+      let diaServico = null;
+
+      if (dataOrdem) {
+        anoServico = dataOrdem.getUTCFullYear();
+        mesServico = dataOrdem.getUTCMonth() + 1;
+        diaServico = dataOrdem.getUTCDate();
+      } else {
+        warnings.push({ row: originalRowNumber, reason: `Data_OSv inválida ('${row["Data_OSv"]}').` });
+      }
+      
+      let defeitoTextoBruto = row["ObsCorpo_OSv"] || row["Obs_Osv"] || row["Descricao_TSr"];
+
+      mappedData.push({
+        numero_ordem: numeroOrdem,
+        data_ordem: dataOrdem,
+        status: status, // Corrigido para usar a variável 'status' já processada
+        defeito_texto_bruto: defeitoTextoBruto || null,
+        mecanico_responsavel: row["RazaoSocial_Cli"] || null,
+        modelo_motor: row["Descricao_Mot"] || null,
+        fabricante_motor: row["Fabricante_Mot"] || null,
+        dia_servico: diaServico,
+        mes_servico: mesServico,
+        ano_servico: anoServico,
+        total_pecas: this.parseNumber(row["TOT. PÇ"]),
+        total_servico: this.parseNumber(row["TOT. SERV."]),
+        total_geral: this.parseNumber(row["TOT"]),
+        cliente_nome: row["Nome_Cli"] || null,
+        observacoes: row["Obs_Osv"] || null,
+        data_fechamento: ExcelService.excelSerialDateToJSDate(row["DataFecha_OSv"]),
+      });
     }
+
+    if (warnings.length > 0) {
+      console.warn("================== AVISOS DURANTE O PROCESSAMENTO ==================");
+      console.warn(`Total de ${warnings.length} avisos gerados.`);
+      warnings.slice(0, 15).forEach(w => console.warn(`- Linha ${w.row}: ${w.reason}`));
+      if (warnings.length > 15) {
+        console.warn(`- ... e mais ${warnings.length - 15} outros avisos.`);
+      }
+      console.warn("====================================================================");
+    }
+
+    return mappedData;
   }
   
   /**
@@ -150,7 +189,7 @@ class ExcelService {
   static mapStatus(status) {
     if (!status) return null;
     
-    const statusUpper = status.toString().toUpperCase().trim();
+    const statusUpper = String(status).toUpperCase().trim();
     
     switch (statusUpper) {
       case "G":
@@ -160,7 +199,8 @@ class ExcelService {
       case "GU":
         return "Garantia de Usinagem";
       default:
-        return status; // Retorna o valor original se não for reconhecido
+        // Se não for um dos status de garantia válidos, retorna null.
+        return null;
     }
   }
   
