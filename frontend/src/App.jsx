@@ -19,6 +19,7 @@ import {
 import Dashboard from './components/Dashboard'
 import UploadPage from './components/UploadPage'
 import DataTable from './components/DataTable'
+import OrdensServico from './components/OrdensServico'
 import AnalysisPage from './components/AnalysisPage'
 import DefectsPage from './components/DefectsPage'
 import MechanicsPage from './components/MechanicsPage'
@@ -47,7 +48,7 @@ function App() {
       case 'upload':
         return <UploadPage />
       case 'orders':
-        return <DataTable />
+        return <OrdensServico />
       case 'analysis':
         return <AnalysisPage />
       case 'defects':
