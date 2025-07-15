@@ -104,3 +104,5 @@ uploads/
 *.db
 *.sqlite
 *.sqlite3 
+
+vite.config.js 

@@ -75,7 +75,7 @@ const OrdensServico = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [newClassification, setNewClassification] = useState('');
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const apiUrl = '/api';
 
   // Cálculo de estatísticas resumidas
   const stats = {
@@ -107,7 +107,7 @@ const OrdensServico = () => {
         params.append('sortOrder', sortConfig.direction);
       }
 
-      const res = await fetch(`${apiUrl}/api/ordens?${params.toString()}`);
+      const res = await fetch(`${apiUrl}/ordens?${params.toString()}`);
       if (!res.ok) throw new Error('Falha ao carregar os dados.');
       const json = await res.json();
       
@@ -124,7 +124,7 @@ const OrdensServico = () => {
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const res = await fetch(`${apiUrl}/api/ordens/filters/options`);
+        const res = await fetch(`${apiUrl}/ordens/filters/options`);
         const json = await res.json();
         setFilterOptions(json);
       } catch (e) {
@@ -174,7 +174,7 @@ const OrdensServico = () => {
   const handleSaveClassification = async () => {
     if (!selectedOrder || !newClassification) return;
     try {
-      const res = await fetch(`${apiUrl}/api/ordens/${selectedOrder.id}/classificar`, {
+      const res = await fetch(`${apiUrl}/ordens/${selectedOrder.id}/classificar`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defeito_grupo: newClassification }),

@@ -2,162 +2,35 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 
-// Rota para KPIs de análise
-router.get('/kpis', async (req, res) => {
+// Endpoint unificado e OTIMIZADO para todos os dados da página de Análises
+router.get('/dados', async (req, res) => {
   try {
-    const { data: ordensServico, error } = await supabase
-      .from('ordens_servico')
-      .select('*');
+    const { startDate, endDate, fabricante, mecanico, defeito_grupo } = req.query;
+
+    // Para chamar a função, precisamos passar os filtros como parâmetros
+    const params = {
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_fabricante: fabricante !== 'all' ? fabricante : null,
+      p_mecanico: mecanico !== 'all' ? mecanico : null,
+      p_defeito_grupo: defeito_grupo !== 'all' ? defeito_grupo : null,
+    };
+
+    // Chamada para a Stored Procedure (Remote Procedure Call) no Supabase
+    const { data, error } = await supabase.rpc('get_analysis_data', params);
 
     if (error) {
-      console.error('Erro ao buscar dados para KPIs:', error);
-      return res.status(500).json({ error: 'Erro ao buscar dados' });
+      console.error('Erro ao chamar a função get_analysis_data:', error);
+      throw new Error('Falha ao executar a análise no banco de dados.');
     }
-
-    // Calcular KPIs
-    const totalOrdens = ordensServico.length;
-    const totalValor = ordensServico.reduce((sum, os) => sum + (os.total_geral || 0), 0);
-    const mediaValorPorOrdem = totalOrdens > 0 ? totalValor / totalOrdens : 0;
-
-    // Calcular crescimento (simulado - últimos 6 meses vs anteriores)
-    const agora = new Date();
-    const seisMesesAtras = new Date(agora.getFullYear(), agora.getMonth() - 6, 1);
     
-    const ordensRecentes = ordensServico.filter(os => {
-      if (os.ano_servico && os.mes_servico) {
-        const dataOS = new Date(os.ano_servico, os.mes_servico - 1, 1);
-        return dataOS >= seisMesesAtras;
-      }
-      return false;
-    });
-
-    const ordensAnteriores = ordensServico.filter(os => {
-      if (os.ano_servico && os.mes_servico) {
-        const dataOS = new Date(os.ano_servico, os.mes_servico - 1, 1);
-        return dataOS < seisMesesAtras;
-      }
-      return false;
-    });
-
-    const valorRecente = ordensRecentes.reduce((sum, os) => sum + (os.total_geral || 0), 0);
-    const valorAnterior = ordensAnteriores.reduce((sum, os) => sum + (os.total_geral || 0), 0);
-    
-    const percentualCrescimento = valorAnterior > 0 
-      ? ((valorRecente - valorAnterior) / valorAnterior) * 100 
-      : 0;
-
-    // Top 5 defeitos mais comuns
-    const defeitosCount = {};
-    ordensServico.forEach(os => {
-      const defeito = os.defeito_grupo || 'Não Classificado';
-      defeitosCount[defeito] = (defeitosCount[defeito] || 0) + 1;
-    });
-
-    const topDefeitos = Object.entries(defeitosCount)
-      .map(([nome, quantidade]) => ({ nome, quantidade }))
-      .sort((a, b) => b.quantidade - a.quantidade)
-      .slice(0, 5);
-
-    res.json({
-      totalOrdens,
-      totalValor,
-      mediaValorPorOrdem,
-      percentualCrescimento,
-      topDefeitos
-    });
+    // A função já retorna os dados no formato que precisamos
+    res.json(data[0]);
 
   } catch (error) {
-    console.error('Erro no endpoint /kpis:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    console.error('Erro no endpoint /analises/dados:', error);
+    res.status(500).json({ error: error.message || 'Erro interno do servidor ao processar dados de análise.' });
   }
 });
 
-// Rota para tendências
-router.get('/tendencias', async (req, res) => {
-  try {
-    const { data: ordensServico, error } = await supabase
-      .from('ordens_servico')
-      .select('*');
-
-    if (error) {
-      console.error('Erro ao buscar dados para tendências:', error);
-      return res.status(500).json({ error: 'Erro ao buscar dados' });
-    }
-
-    // Agrupar por mês/ano
-    const dadosPorMes = {};
-    ordensServico.forEach(os => {
-      if (os.ano_servico && os.mes_servico) {
-        const chave = `${os.ano_servico}-${os.mes_servico.toString().padStart(2, '0')}`;
-        if (!dadosPorMes[chave]) {
-          dadosPorMes[chave] = {
-            periodo: chave,
-            quantidade: 0,
-            valor: 0
-          };
-        }
-        dadosPorMes[chave].quantidade += 1;
-        dadosPorMes[chave].valor += (os.total_geral || 0);
-      }
-    });
-
-    const tendencias = Object.values(dadosPorMes)
-      .sort((a, b) => a.periodo.localeCompare(b.periodo))
-      .slice(-12); // Últimos 12 meses
-
-    res.json(tendencias);
-
-  } catch (error) {
-    console.error('Erro no endpoint /tendencias:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-// Rota para performance dos mecânicos
-router.get('/performance-mecanicos', async (req, res) => {
-  try {
-    const { data: ordensServico, error } = await supabase
-      .from('ordens_servico')
-      .select('*');
-
-    if (error) {
-      console.error('Erro ao buscar dados para performance:', error);
-      return res.status(500).json({ error: 'Erro ao buscar dados' });
-    }
-
-    // Agrupar por mecânico
-    const performancePorMecanico = {};
-    ordensServico.forEach(os => {
-      const mecanico = os.mecanico_responsavel || 'Não Informado';
-      if (!performancePorMecanico[mecanico]) {
-        performancePorMecanico[mecanico] = {
-          nome: mecanico,
-          totalOrdens: 0,
-          valorTotal: 0,
-          mediaPorOrdem: 0
-        };
-      }
-      performancePorMecanico[mecanico].totalOrdens += 1;
-      performancePorMecanico[mecanico].valorTotal += (os.total_geral || 0);
-    });
-
-    // Calcular média por ordem
-    Object.values(performancePorMecanico).forEach(mecanico => {
-      mecanico.mediaPorOrdem = mecanico.totalOrdens > 0 
-        ? mecanico.valorTotal / mecanico.totalOrdens 
-        : 0;
-    });
-
-    const performance = Object.values(performancePorMecanico)
-      .sort((a, b) => b.valorTotal - a.valorTotal)
-      .slice(0, 10); // Top 10 mecânicos
-
-    res.json(performance);
-
-  } catch (error) {
-    console.error('Erro no endpoint /performance-mecanicos:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-module.exports = router; 
+module.exports = router;

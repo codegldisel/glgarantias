@@ -78,12 +78,12 @@ const Dashboard = () => {
   
   const [dashboardData, setDashboardData] = useState(null);
 
-  const apiUrl = useMemo(() => import.meta.env.VITE_API_URL || 'http://localhost:3000', []);
+  const apiUrl = useMemo(() => '/api', []);
 
   useEffect(() => {
     const fetchAvailableDates = async () => {
       try {
-        const response = await fetch(`${apiUrl}/api/dashboard/available-dates`);
+        const response = await fetch(`${apiUrl}/dashboard/available-dates`);
         if (!response.ok) throw new Error('Falha ao buscar datas disponíveis.');
         const dates = await response.json();
         if (dates.years.length > 0) {
@@ -110,7 +110,7 @@ const Dashboard = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${apiUrl}/api/dashboard/data?ano=${selectedYear}&mes=${selectedMonth}`);
+        const response = await fetch(`${apiUrl}/dashboard/data?ano=${selectedYear}&mes=${selectedMonth}`);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || `Erro HTTP: ${response.status}`);

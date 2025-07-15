@@ -18,12 +18,21 @@ const DefectsPage = () => {
     const fetchDefeitos = async () => {
       setLoading(true)
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-        const res = await fetch(`${apiUrl}/api/ordens`)
+        // O endpoint correto para análise de defeitos
+        const res = await fetch(`/api/analises/dados`) 
+        if (!res.ok) {
+          // Lança um erro com a mensagem do servidor se a resposta não for OK
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Falha ao buscar dados de análise.');
+        }
         const json = await res.json()
-        setDefeitos(json.data || [])
+        // A rota /api/analises/dados retorna um objeto que contém a chave 'defeitos'
+        setDefeitos(json.defeitos || []) 
       } catch (e) {
+        console.error("Erro ao buscar defeitos:", e.message);
         setDefeitos([])
+        // Opcional: Adicionar um estado para exibir a mensagem de erro na UI
+        // setErrorMessage(e.message); 
       } finally {
         setLoading(false)
       }

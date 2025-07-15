@@ -85,7 +85,7 @@ const UploadPage = () => {
       const formData = new FormData()
       formData.append('planilha', file)
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+      const apiUrl = '/api'
       
       const response = await fetch(`${apiUrl}/api/upload`, {
         method: 'POST',

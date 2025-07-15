@@ -19,8 +19,8 @@ const MechanicsPage = () => {
     const fetchMecanicos = async () => {
       setLoading(true)
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-        const res = await fetch(`${apiUrl}/api/analises/performance-mecanicos`)
+        const apiUrl = '/api'
+        const res = await fetch(`${apiUrl}/analises/performance-mecanicos`)
         const json = await res.json()
         setMecanicos(json || [])
       } catch (e) {

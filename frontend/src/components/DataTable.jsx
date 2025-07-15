@@ -29,7 +29,7 @@ const DataTable = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [newClassification, setNewClassification] = useState('');
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const apiUrl = '/api';
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -158,7 +158,7 @@ const DataTable = () => {
           ) : error ? (
             <div className="flex items-center justify-center h-full text-red-600"><AlertTriangle className="mr-2" />{error}</div>
           ) : (
-            <div style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'auto', width: '100%' }}>
+            <div className="w-full overflow-auto">
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
