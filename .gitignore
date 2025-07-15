@@ -104,3 +104,9 @@ uploads/
 *.db
 *.sqlite
 *.sqlite3 
+
+# Arquivos de configuração específicos do ambiente
+/frontend/vite.config.js
+/frontend/.env.development
+
+
