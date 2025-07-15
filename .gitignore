@@ -13,6 +13,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+/frontend/.env.development
 
 # Logs
 npm-debug.log*
@@ -105,4 +106,5 @@ uploads/
 *.sqlite
 *.sqlite3 
 
-vite.config.js 
+vite.config.js
+/frontend/vite.config.js
