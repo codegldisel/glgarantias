@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [react(),tailwindcss()],
   server: {
     host: true,
-    allowedHosts: ['localhost'],
+    allowedHosts: ["5177-if595lmtubk8djg5b01nj-3154416d.manusvm.computer"],
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
