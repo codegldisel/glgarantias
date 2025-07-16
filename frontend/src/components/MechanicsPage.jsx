@@ -171,7 +171,7 @@ const MechanicsPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Gestão de Mecânicos</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Análise de Garantias</h1>
             <p className="text-lg text-gray-600">Performance, produtividade e análise da equipe técnica</p>
           </div>
           <Button 

@@ -171,7 +171,7 @@ const DefectsPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Análise de Defeitos</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Análise de Garantias</h1>
             <p className="text-lg text-gray-600">Classificação detalhada, padrões e análise de custos por defeito</p>
           </div>
           <Button 
