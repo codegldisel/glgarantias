@@ -10,6 +10,7 @@ CREATE TABLE ordens_servico (
     defeito_texto_bruto TEXT,
     mecanico_responsavel VARCHAR(255),
     modelo_motor VARCHAR(255),
+    modelo_veiculo_motor VARCHAR(255),
     fabricante_motor VARCHAR(255),
     dia_servico INTEGER,
     mes_servico INTEGER,
@@ -179,23 +180,20 @@ CREATE POLICY "Permitir tudo para uploads" ON uploads FOR ALL USING (true);
 
 -- Funções RPC para buscar valores distintos para filtros
 CREATE OR REPLACE FUNCTION get_distinct_status()
-RETURNS TABLE(status TEXT) AS $
+RETURNS TABLE(status TEXT) AS $$
 BEGIN
     RETURN QUERY SELECT DISTINCT os.status FROM ordens_servico os WHERE os.status IS NOT NULL ORDER BY 1;
-END;
-$ LANGUAGE plpgsql;
+END; $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION get_distinct_mecanicos()
-RETURNS TABLE(mecanico_responsavel TEXT) AS $
+RETURNS TABLE(mecanico_responsavel TEXT) AS $$
 BEGIN
     RETURN QUERY SELECT DISTINCT os.mecanico_responsavel FROM ordens_servico os WHERE os.mecanico_responsavel IS NOT NULL ORDER BY 1;
-END;
-$ LANGUAGE plpgsql;
+END; $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION get_distinct_defeito_grupos()
-RETURNS TABLE(defeito_grupo TEXT) AS $
+RETURNS TABLE(defeito_grupo TEXT) AS $$
 BEGIN
     RETURN QUERY SELECT DISTINCT os.defeito_grupo FROM ordens_servico os WHERE os.defeito_grupo IS NOT NULL ORDER BY 1;
-END;
-$ LANGUAGE plpgsql;
+END; $$ LANGUAGE plpgsql;
 
