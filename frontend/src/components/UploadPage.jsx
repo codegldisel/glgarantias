@@ -87,21 +87,33 @@ const UploadPage = () => {
 
       const apiUrl = '/api'
       
-      const response = await fetch(`${apiUrl}/api/upload`, {
+      const response = await fetch(`${apiUrl}/upload`, {
         method: 'POST',
         body: formData
       })
 
+      const contentType = response.headers.get('content-type')
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro no upload')
+        let errorMsg = 'Erro desconhecido no upload.'
+        try {
+          if (contentType && contentType.includes('application/json')) {
+            errorMsg = (await response.json()).error
+          } else {
+            errorMsg = await response.text()
+          }
+        } catch {
+          errorMsg = 'Erro inesperado do servidor.'
+        }
+        throw new Error(errorMsg)
       }
-
-      const result = await response.json()
-      setUploadProgress(100)
-      setUploadStatus('success')
-      console.log('Upload realizado com sucesso:', result)
-
+      if (contentType && contentType.includes('application/json')) {
+        const result = await response.json()
+        setUploadProgress(100)
+        setUploadStatus('success')
+        console.log('Upload realizado com sucesso:', result)
+      } else {
+        throw new Error('Resposta inesperada do servidor (não é JSON).')
+      }
     } catch (error) {
       console.error('Erro no upload:', error)
       setUploadStatus('error')

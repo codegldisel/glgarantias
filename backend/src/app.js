@@ -57,8 +57,10 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024 // Aumentado para 100MB para lidar com arquivos grandes
   },
   fileFilter: function (req, file, cb) {
-    if (file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-        file.mimetype === "application/vnd.ms-excel") {
+    if (
+      file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.mimetype === "application/vnd.ms-excel"
+    ) {
       cb(null, true);
     } else {
       cb(new Error("Apenas arquivos Excel são permitidos!"), false);
@@ -193,8 +195,11 @@ app.use((error, req, res, next) => {
     if (error.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({ error: "Arquivo muito grande. Máximo 100MB." });
     }
+    return res.status(400).json({ error: error.message });
   }
-
+  if (error.message === "Apenas arquivos Excel são permitidos!") {
+    return res.status(400).json({ error: error.message });
+  }
   console.error(error);
   res.status(500).json({ error: error.message || "Erro interno do servidor" });
 });
