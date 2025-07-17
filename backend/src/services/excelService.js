@@ -2,13 +2,19 @@ const XLSX = require("xlsx");
 
 class ExcelService {
   /**
-   * Converte um número de série de data do Excel para um objeto Date do JavaScript.
-   * @param {number} serial - Número de série da data do Excel.
+   * Converte um valor de data do Excel para um objeto Date do JavaScript.
+   * Suporta números seriais do Excel e strings em vários formatos, incluindo 'DD/MM/YYYY HH:MM:SS'.
+   * @param {any} cellValue - Valor da célula do Excel (número, string ou Date).
    * @returns {Date|null} Objeto Date do JavaScript ou null se inválido.
    */
   static excelSerialDateToJSDate(cellValue) {
-    if (cellValue === null || cellValue === undefined) {
+    if (cellValue === null || cellValue === undefined || cellValue === '') {
       return null;
+    }
+
+    // Se for um objeto Date, retornar diretamente
+    if (cellValue instanceof Date && !isNaN(cellValue.getTime())) {
+        return cellValue;
     }
 
     // Se for um número, tratar como data serial do Excel
@@ -22,11 +28,20 @@ class ExcelService {
 
     // Se for uma string, tentar analisar formatos comuns
     if (typeof cellValue === 'string') {
+      // Formato: DD/MM/YYYY HH:MM:SS (ex: 15/07/2025 00:00:00)
+      const matchDateTime = cellValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+      if (matchDateTime) {
+        const [, day, month, year, hour, minute, second] = matchDateTime.map(Number);
+        // Usar UTC para evitar problemas de fuso horário, mas construir com base local para compatibilidade
+        const date = new Date(year, month - 1, day, hour, minute, second);
+        if (!isNaN(date.getTime())) return date;
+      }
+
       // Formato: DD/MM/YYYY ou DD-MM-YYYY
       const matchDMY = cellValue.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
       if (matchDMY) {
         const [, day, month, year] = matchDMY.map(Number);
-        const date = new Date(Date.UTC(year, month - 1, day));
+        const date = new Date(year, month - 1, day);
         if (!isNaN(date.getTime())) return date;
       }
 
@@ -34,7 +49,7 @@ class ExcelService {
       const matchYMD = cellValue.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
       if (matchYMD) {
         const [, year, month, day] = matchYMD.map(Number);
-        const date = new Date(Date.UTC(year, month - 1, day));
+        const date = new Date(year, month - 1, day);
         if (!isNaN(date.getTime())) return date;
       }
       
@@ -45,11 +60,6 @@ class ExcelService {
       }
     }
     
-    // Se for um objeto Date, retornar diretamente
-    if (cellValue instanceof Date && !isNaN(cellValue.getTime())) {
-        return cellValue;
-    }
-
     console.warn(`[excelService] Não foi possível converter o valor de data:`, cellValue);
     return null;
   }
@@ -110,16 +120,21 @@ class ExcelService {
   }
   
   /**
-   * Mapeia os dados do Excel para o formato do banco de dados e filtra por status G, GO, GU.
+   * Mapeia os dados do Excel para o formato do banco de dados e filtra por status G, GO, GU e ano >= 2019.
    * @param {Array} excelData - Dados extraídos do Excel
    * @returns {Array} Dados mapeados e filtrados para o banco
    */
   static mapExcelDataToDatabase(excelData) {
     const mappedData = [];
     const warnings = [];
+    let totalProcessed = 0;
+    let filteredByStatus = 0;
+    let filteredByYear = 0;
+    let filteredByValidation = 0;
 
     for (const [index, row] of excelData.data.entries()) {
       const originalRowNumber = index + 2;
+      totalProcessed++;
 
       const numeroOrdem = row["NOrdem_OSv"];
       if (!numeroOrdem) {
@@ -127,9 +142,18 @@ class ExcelService {
         continue;
       }
 
-      const status = this.mapStatus(row["Status_OSv"]);
+      // Verificar se o status é válido (G, GO, GU)
+      const statusRaw = row["Status_OSv"] ? row["Status_OSv"].toString().toUpperCase().trim() : null;
+      const statusValidos = ["G", "GO", "GU"];
+      if (!statusValidos.includes(statusRaw)) {
+        filteredByStatus++;
+        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Status inválido ou não é de garantia ('${row["Status_OSv"]}' ).` });
+        continue;
+      }
+
+      const status = this.mapStatus(statusRaw);
       if (!status) {
-        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Status inválido ou não é de garantia ('${row["Status_OSv"]}').` });
+        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Erro no mapeamento do status ('${statusRaw}').` });
         continue;
       }
 
@@ -139,34 +163,67 @@ class ExcelService {
       let diaServico = null;
 
       if (dataOrdem) {
-        anoServico = dataOrdem.getUTCFullYear();
-        mesServico = dataOrdem.getUTCMonth() + 1;
-        diaServico = dataOrdem.getUTCDate();
+        anoServico = dataOrdem.getFullYear();
+        mesServico = dataOrdem.getMonth() + 1;
+        diaServico = dataOrdem.getDate();
+
+        // NOVO: Verificar se o ano é >= 2019
+        if (anoServico < 2019) {
+          filteredByYear++;
+          warnings.push({ row: originalRowNumber, reason: `Linha descartada: Ano da Data_OSv (${anoServico}) anterior a 2019.` });
+          continue;
+        }
       } else {
-        warnings.push({ row: originalRowNumber, reason: `Data_OSv inválida ('${row["Data_OSv"]}').` });
+        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Data_OSv inválida ou ausente ('${row["Data_OSv"]}' ).` });
+        continue;
       }
       
-      let defeitoTextoBruto = row["ObsCorpo_OSv"] || row["Obs_Osv"] || row["Descricao_TSr"];
+      let totalPecasRaw = this.parseNumber(row["TotalProd_OSv"]);
+      let totalPecas = totalPecasRaw !== null ? totalPecasRaw / 2 : null; // Dividir por 2
+      
+      let totalServico = this.parseNumber(row["TotalServ_OSv"]);
+      let totalGeral = this.parseNumber(row["Total_OSv"]);
+
+      // Validação: (TotalProd_OSv/2) + TotalServ_OSv = Total_OSv
+      if (totalPecas !== null && totalServico !== null && totalGeral !== null) {
+        const calculatedTotal = totalPecas + totalServico;
+        if (Math.abs(calculatedTotal - totalGeral) > 0.01) { // Usar tolerância para float
+          filteredByValidation++;
+          warnings.push({ row: originalRowNumber, reason: `Linha descartada: Validação de totais falhou. Calculado: ${calculatedTotal}, Esperado: ${totalGeral}.` });
+          continue;
+        }
+      } else if (totalPecas === null || totalServico === null || totalGeral === null) {
+        // Se algum dos totais for nulo, descartar a linha
+        filteredByValidation++;
+        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Um ou mais valores de totais (TotalProd_OSv, TotalServ_OSv, Total_OSv) estão ausentes ou inválidos.` });
+        continue;
+      }
 
       mappedData.push({
         numero_ordem: numeroOrdem,
         data_ordem: dataOrdem,
-        status: status, // Corrigido para usar a variável 'status' já processada
-        defeito_texto_bruto: defeitoTextoBruto || null,
+        status: status,
+        defeito_texto_bruto: row["ObsCorpo_OSv"] || null,
         mecanico_responsavel: row["RazaoSocial_Cli"] || null,
         modelo_motor: row["Descricao_Mot"] || null,
         fabricante_motor: row["Fabricante_Mot"] || null,
         dia_servico: diaServico,
         mes_servico: mesServico,
         ano_servico: anoServico,
-        total_pecas: this.parseNumber(row["TOT. PÇ"]),
-        total_servico: this.parseNumber(row["TOT. SERV."]),
-        total_geral: this.parseNumber(row["TOT"]),
-        cliente_nome: row["Nome_Cli"] || null,
-        observacoes: row["Obs_Osv"] || null,
-        data_fechamento: ExcelService.excelSerialDateToJSDate(row["DataFecha_OSv"]),
+        total_pecas: totalPecas,
+        total_servico: totalServico,
+        total_geral: totalGeral,
       });
     }
+
+    // Log de estatísticas de filtragem
+    console.log("================== ESTATÍSTICAS DE FILTRAGEM ==================");
+    console.log(`Total de linhas processadas: ${totalProcessed}`);
+    console.log(`Filtradas por status (não G/GO/GU): ${filteredByStatus}`);
+    console.log(`Filtradas por ano (< 2019): ${filteredByYear}`);
+    console.log(`Filtradas por validação de totais: ${filteredByValidation}`);
+    console.log(`Registros válidos após filtragem: ${mappedData.length}`);
+    console.log("===============================================================");
 
     if (warnings.length > 0) {
       console.warn("================== AVISOS DURANTE O PROCESSAMENTO ==================");
@@ -217,57 +274,9 @@ class ExcelService {
     const num = parseFloat(value);
     return isNaN(num) ? null : num;
   }
-
-  /**
-   * Converte mês textual (ex: 'julho') para número (1-12), aceitando erros comuns de digitação e variações.
-   * @param {string|number} mes - Mês textual ou numérico
-   * @returns {number|null}
-   */
-  static parseMonth(mes) {
-    if (typeof mes === 'number') return mes;
-    if (!mes) return null;
-    // Normaliza: minúsculo, sem acento, sem espaços
-    let mesNorm = mes.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
-    // Correções de erros comuns
-    const correcoes = {
-      'setemebro': 'setembro',
-      'setemebto': 'setembro',
-      'setemrbo': 'setembro',
-      'setemro': 'setembro',
-      'setembro': 'setembro',
-      'novembro': 'novembro',
-      'novbro': 'novembro',
-      'novemrbo': 'novembro',
-      'dezembro': 'dezembro',
-      'dezembroo': 'dezembro',
-      'dezembro': 'dezembro',
-      'jan': 'janeiro',
-      'fev': 'fevereiro',
-      'mar': 'marco',
-      'abr': 'abril',
-      'mai': 'maio',
-      'jun': 'junho',
-      'jul': 'julho',
-      'ago': 'agosto',
-      'set': 'setembro',
-      'out': 'outubro',
-      'nov': 'novembro',
-      'dez': 'dezembro',
-    };
-    if (correcoes[mesNorm]) mesNorm = correcoes[mesNorm];
-    // Lista de meses válidos
-    const meses = [
-      'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
-      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
-    ];
-    const idx = meses.findIndex(m => m === mesNorm);
-    if (idx >= 0) return idx + 1;
-    // Tenta converter para número
-    const num = parseInt(mes);
-    return isNaN(num) ? null : num;
-  }
 }
 
 module.exports = ExcelService;
+
 
 

@@ -22,6 +22,12 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors()); // Usar o middleware cors sem opções para permitir todas as origens
 
+// Middleware para logar todas as requisições recebidas
+app.use((req, res, next) => {
+  console.log(`Requisição recebida: ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -70,6 +76,9 @@ app.get("/", (req, res) => {
 
 // Rota de upload e processamento de planilha
 app.post("/api/upload", upload.single("planilha"), async (req, res) => {
+  console.log("Requisição de upload recebida."); // Log para verificar se a rota é atingida
+  console.log("File:", req.file); // Log para verificar se o arquivo está presente
+
   if (!req.file) {
     return res.status(400).json({ error: "Nenhum arquivo foi enviado" });
   }

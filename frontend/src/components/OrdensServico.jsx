@@ -9,13 +9,13 @@ import { Badge } from '@/components/ui/badge.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import { DatePickerWithRange } from '@/components/ui/date-picker.jsx';
-import { 
-  Search, 
-  Edit, 
-  X, 
-  AlertTriangle, 
-  Download, 
-  Settings2, 
+import {
+  Search,
+  Edit,
+  X,
+  AlertTriangle,
+  Download,
+  Settings2,
   Filter,
   ChevronUp,
   ChevronDown,
@@ -42,17 +42,19 @@ const OrdensServico = () => {
     defeito_subgrupo: 'all',
     defeito_subsubgrupo: 'all',
     dateRange: { from: null, to: null },
+    ano: 'all', // Adicionado filtro de ano
   });
   const debouncedSearch = useDebounce(filters.search, 500);
 
-  const [filterOptions, setFilterOptions] = useState({ 
-    status: [], 
-    mecanicos: [], 
+  const [filterOptions, setFilterOptions] = useState({
+    status: [],
+    mecanicos: [],
     fabricantes: [],
     modelos: [],
     defeito_grupos: [],
     defeito_subgrupos: [],
-    defeito_subsubgrupos: []
+    defeito_subsubgrupos: [],
+    anos: [] // Adicionado anos às opções de filtro
   });
 
   const [visibleColumns, setVisibleColumns] = useState({
@@ -102,6 +104,7 @@ const OrdensServico = () => {
       if (filters.defeito_subsubgrupo !== 'all') params.append('defeito_subsubgrupo', filters.defeito_subsubgrupo);
       if (filters.dateRange.from) params.append('startDate', filters.dateRange.from.toISOString().split('T')[0]);
       if (filters.dateRange.to) params.append('endDate', filters.dateRange.to.toISOString().split('T')[0]);
+      if (filters.ano !== 'all') params.append('ano', filters.ano); // Adicionar ano ao parâmetro da API
       if (sortConfig.key) {
         params.append('sortBy', sortConfig.key);
         params.append('sortOrder', sortConfig.direction);
@@ -144,16 +147,17 @@ const OrdensServico = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ 
-      search: '', 
-      status: 'all', 
+    setFilters({
+      search: '',
+      status: 'all',
       fabricante: 'all',
       modelo: 'all',
-      mecanico: 'all', 
+      mecanico: 'all',
       defeito_grupo: 'all',
       defeito_subgrupo: 'all',
       defeito_subsubgrupo: 'all',
-      dateRange: { from: null, to: null } 
+      dateRange: { from: null, to: null },
+      ano: 'all' // Limpar filtro de ano
     });
     setPagination(prev => ({ ...prev, page: 1 }));
   };
@@ -198,7 +202,7 @@ const OrdensServico = () => {
           .map(key => order[key] || '')
           .join(',')
       )
-    ].join('\\n');
+    ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -362,6 +366,14 @@ const OrdensServico = () => {
               </SelectContent>
             </Select>
 
+            <Select value={filters.ano} onValueChange={(v) => handleFilterChange('ano', v)}>
+              <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Anos</SelectItem>
+                {filterOptions.anos.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
             <DatePickerWithRange
               date={filters.dateRange}
               onDateChange={(range) => handleFilterChange('dateRange', range)}
@@ -489,7 +501,11 @@ const OrdensServico = () => {
                         <TableCell className="font-medium">{order.numero_ordem}</TableCell>
                       )}
                       {visibleColumns.data_ordem && (
-                        <TableCell>{new Date(order.data_ordem).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell>
+                          {order.data_ordem && !isNaN(new Date(order.data_ordem)) 
+                            ? new Date(order.data_ordem).toLocaleDateString('pt-BR') 
+                            : 'N/A'}
+                        </TableCell>
                       )}
                       {visibleColumns.status && (
                         <TableCell>
@@ -639,4 +655,5 @@ const OrdensServico = () => {
 };
 
 export default OrdensServico;
+
 
