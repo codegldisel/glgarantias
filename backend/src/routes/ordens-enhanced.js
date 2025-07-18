@@ -39,12 +39,12 @@ router.get('/', async (req, res) => {
     
     // Filtro de busca textual
     if (search) {
-      query = query.or(`numero_ordem.ilike.%${search}%,defeito_texto_bruto.ilike.%${search}%,fabricante_motor.ilike.%${search}%,modelo_motor.ilike.%${search}%`);
+      query = query.or(`numero_ordem.ilike.%${search}%,defeito_texto_bruto.ilike.%${search}%,fabricante_motor.ilike.%${search}%,modelo_motor.ilike.%${search}%,modelo_veiculo_motor.ilike.%${search}%`);
     }
 
     // Ordenação
     const validSortColumns = [
-      'numero_ordem', 'data_ordem', 'status', 'fabricante_motor', 'modelo_motor',
+      'numero_ordem', 'data_ordem', 'status', 'fabricante_motor', 'modelo_motor', 'modelo_veiculo_motor',
       'defeito_grupo', 'defeito_subgrupo', 'defeito_subsubgrupo', 'mecanico_responsavel',
       'total_pecas', 'total_servico', 'total_geral'
     ];
@@ -92,7 +92,8 @@ router.get('/filters/options', async (req, res) => {
       .select(`
         status, 
         fabricante_motor, 
-        modelo_motor, 
+        modelo_motor,
+        modelo_veiculo_motor, 
         mecanico_responsavel, 
         defeito_grupo, 
         defeito_subgrupo, 
@@ -109,6 +110,7 @@ router.get('/filters/options', async (req, res) => {
     const status = [...new Set(data.map(item => item.status).filter(Boolean))].sort();
     const fabricantes = [...new Set(data.map(item => item.fabricante_motor).filter(Boolean))].sort();
     const modelos = [...new Set(data.map(item => item.modelo_motor).filter(Boolean))].sort();
+    const modelosVeiculo = [...new Set(data.map(item => item.modelo_veiculo_motor).filter(Boolean))].sort();
     const mecanicos = [...new Set(data.map(item => item.mecanico_responsavel).filter(Boolean))].sort();
     const defeito_grupos = [...new Set(data.map(item => item.defeito_grupo).filter(Boolean))].sort();
     const defeito_subgrupos = [...new Set(data.map(item => item.defeito_subgrupo).filter(Boolean))].sort();
@@ -118,6 +120,7 @@ router.get('/filters/options', async (req, res) => {
       status,
       fabricantes,
       modelos,
+      modelosVeiculo,
       mecanicos,
       defeito_grupos,
       defeito_subgrupos,

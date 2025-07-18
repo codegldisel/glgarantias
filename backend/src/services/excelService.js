@@ -206,6 +206,7 @@ class ExcelService {
         defeito_texto_bruto: row["ObsCorpo_OSv"] || null,
         mecanico_responsavel: row["RazaoSocial_Cli"] || null,
         modelo_motor: row["Descricao_Mot"] || null,
+        modelo_veiculo_motor: row["ModeloVei_Osv"] || null,
         fabricante_motor: row["Fabricante_Mot"] || null,
         dia_servico: diaServico,
         mes_servico: mesServico,

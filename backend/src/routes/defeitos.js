@@ -231,6 +231,15 @@ router.get("/filtros", async (req, res) => {
 
     if (modelosError) throw modelosError;
 
+    // Buscar modelos de veículo únicos
+    const { data: modelosVeiculo, error: modelosVeiculoError } = await supabase
+      .from("ordens_servico")
+      .select("modelo_veiculo_motor")
+      .not("modelo_veiculo_motor", "is", null)
+      .order("modelo_veiculo_motor");
+
+    if (modelosVeiculoError) throw modelosVeiculoError;
+
     // Buscar grupos de defeito únicos
     const { data: defeitos, error: defeitosError } = await supabase
       .from("ordens_servico")
@@ -261,6 +270,7 @@ router.get("/filtros", async (req, res) => {
     const responseData = {
       fabricantes: [...new Set(fabricantes.map(f => f.fabricante_motor))],
       modelos: [...new Set(modelos.map(m => m.modelo_motor))],
+      modelosVeiculo: [...new Set(modelosVeiculo.map(mv => mv.modelo_veiculo_motor))],
       defeitos: [...new Set(defeitos.map(d => d.defeito_grupo))],
       mecanicos: [...new Set(mecanicos.map(m => m.mecanico_responsavel))],
       status: [...new Set(statusList.map(s => s.status))]

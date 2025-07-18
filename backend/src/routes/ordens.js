@@ -41,12 +41,12 @@ router.get("/", async (req, res) => {
     
     // Filtro de busca textual
     if (search) {
-      query = query.or(`numero_ordem.ilike.%${search}%,defeito_texto_bruto.ilike.%${search}%,fabricante_motor.ilike.%${search}%,modelo_motor.ilike.%${search}%`);
+      query = query.or(`numero_ordem.ilike.%${search}%,defeito_texto_bruto.ilike.%${search}%,fabricante_motor.ilike.%${search}%,modelo_motor.ilike.%${search}%,modelo_veiculo_motor.ilike.%${search}%`);
     }
 
     // Ordenação
     const validSortColumns = [
-      "numero_ordem", "data_ordem", "status", "fabricante_motor", "modelo_motor",
+      "numero_ordem", "data_ordem", "status", "fabricante_motor", "modelo_motor", "modelo_veiculo_motor",
       "defeito_grupo", "defeito_subgrupo", "defeito_subsubgrupo", "mecanico_responsavel",
       "total_pecas", "total_servico", "total_geral"
     ];
@@ -203,7 +203,7 @@ router.get("/stats", async (req, res) => {
     if (ano && ano !== "all") query = query.eq("ano_servico", parseInt(ano)); // Aplicar filtro de ano
     
     if (search) {
-      query = query.or(`numero_ordem.ilike.%${search}%,defeito_texto_bruto.ilike.%${search}%,fabricante_motor.ilike.%${search}%,modelo_motor.ilike.%${search}%`);
+      query = query.or(`numero_ordem.ilike.%${search}%,defeito_texto_bruto.ilike.%${search}%,fabricante_motor.ilike.%${search}%,modelo_motor.ilike.%${search}%,modelo_veiculo_motor.ilike.%${search}%`);
     }
 
     const { data, error, count } = await query;

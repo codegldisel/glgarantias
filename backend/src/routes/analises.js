@@ -15,7 +15,7 @@ router.get("/strategic-data", async (req, res) => {
     const { startDate, endDate, fabricante, modelo, defeito_grupo, status, oficina } = req.query;
 
     // Construir filtros dinâmicos
-    let query = supabase.from("ordens_servico").select("id, data_ordem, total_geral, data_os, data_fechamento, total_pecas, total_servico, fabricante_motor, modelo_motor, defeito_grupo, status, mecanico_responsavel");
+    let query = supabase.from("ordens_servico").select("id, data_ordem, total_geral, data_os, data_fechamento, total_pecas, total_servico, fabricante_motor, modelo_motor, modelo_veiculo_motor, defeito_grupo, status, mecanico_responsavel");
 
     // Aplicar filtros de status padrão
     query = query.in("status", ["Garantia", "Garantia de Oficina", "Garantia de Usinagem"]);
@@ -185,6 +185,15 @@ router.get("/filtros", async (req, res) => {
 
     if (modelosError) throw modelosError;
 
+    // Buscar modelos de veículo únicos
+    const { data: modelosVeiculo, error: modelosVeiculoError } = await supabase
+      .from("ordens_servico")
+      .select("modelo_veiculo_motor")
+      .not("modelo_veiculo_motor", "is", null)
+      .order("modelo_veiculo_motor");
+
+    if (modelosVeiculoError) throw modelosVeiculoError;
+
     // Buscar grupos de defeito únicos
     const { data: defeitos, error: defeitosError } = await supabase
       .from("ordens_servico")
@@ -204,8 +213,9 @@ router.get("/filtros", async (req, res) => {
     if (statusError) throw statusError;
 
     const responseData = {
-      fabricantes: [...new Set(statusList.map(s => s.fabricante_motor))],
+      fabricantes: [...new Set(fabricantes.map(f => f.fabricante_motor))],
       modelos: [...new Set(modelos.map(m => m.modelo_motor))],
+      modelosVeiculo: [...new Set(modelosVeiculo.map(mv => mv.modelo_veiculo_motor))],
       defeitos: [...new Set(defeitos.map(d => d.defeito_grupo))],
       status: [...new Set(statusList.map(s => s.status))]
     };
