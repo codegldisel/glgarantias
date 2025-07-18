@@ -3,9 +3,12 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs"); // Para deletar o arquivo temporário
+const fs = require("fs");
 
-const app = express(); // Adicionando a linha que estava faltando
+const { trackingMiddleware, dataTracker } = require("./middleware/dataTracker");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 const ExcelService = require("./services/excelService");
 const NLPService = require("./services/nlpService");
@@ -17,19 +20,22 @@ const ordensRoutes = require("./routes/ordens");
 const analisesRoutes = require("./routes/analises");
 const defeitosRoutes = require("./routes/defeitos");
 const mecanicosRoutes = require("./routes/mecanicos");
-const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors()); // Usar o middleware cors sem opções para permitir todas as origens
+// Configuração CORS para permitir todas as origens (para depuração)
+app.use(cors());
+
+// Middleware básico
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Middleware de rastreamento de dados
+app.use(trackingMiddleware);
 
 // Middleware para logar todas as requisições recebidas
 app.use((req, res, next) => {
   console.log(`Requisição recebida: ${req.method} ${req.url}`);
   next();
 });
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // Rotas
 app.use("/api/dashboard", dashboardRoutes);
@@ -38,6 +44,7 @@ app.use("/api/analises", analisesRoutes);
 app.use("/api/defeitos", defeitosRoutes);
 app.use("/api/mecanicos", mecanicosRoutes);
 
+// Configuração do multer para upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = "uploads/";
@@ -54,7 +61,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024 // Aumentado para 100MB para lidar com arquivos grandes
+    fileSize: 100 * 1024 * 1024 // 100MB
   },
   fileFilter: function (req, file, cb) {
     if (
@@ -76,12 +83,30 @@ app.get("/", (req, res) => {
   res.json({ message: "API de Análise de Garantias funcionando!" });
 });
 
+// Rota para obter relatório de rastreamento
+app.get("/api/tracking/report", (req, res) => {
+  const report = dataTracker.getUploadReport();
+  res.json(report || { message: "Nenhum upload em andamento" });
+});
+
+// Rota para obter todos os logs
+app.get("/api/tracking/logs", (req, res) => {
+  const logs = dataTracker.getAllLogs();
+  res.json(logs);
+});
+
+// Rota para limpar logs
+app.post("/api/tracking/clear", (req, res) => {
+  dataTracker.clearLogs();
+  res.json({ message: "Logs limpos com sucesso" });
+});
+
 // Rota de upload e processamento de planilha
 app.post("/api/upload", upload.single("planilha"), async (req, res) => {
-  console.log("Requisição de upload recebida."); // Log para verificar se a rota é atingida
-  console.log("File:", req.file); // Log para verificar se o arquivo está presente
-
+  const tracker = req.dataTracker;
+  
   if (!req.file) {
+    tracker.logError("UPLOAD_ERROR", new Error("Nenhum arquivo foi enviado"));
     return res.status(400).json({ error: "Nenhum arquivo foi enviado" });
   }
 
@@ -89,10 +114,19 @@ app.post("/api/upload", upload.single("planilha"), async (req, res) => {
   const originalname = req.file.originalname;
   const fileSize = req.file.size;
 
-  let uploadId; // Para rastrear o upload no banco de dados
+  // Iniciar rastreamento do upload
+  const uploadId = tracker.startUpload(originalname);
+  tracker.log("FILE_RECEIVED", `Arquivo recebido: ${originalname}`, {
+    size: `${(fileSize / 1024 / 1024).toFixed(2)} MB`,
+    path: filePath,
+    mimetype: req.file.mimetype
+  });
+
+  let dbUploadId; // Para rastrear o upload no banco de dados
 
   try {
     // 1. Registrar o upload no banco de dados
+    tracker.log("DB_UPLOAD_START", "Registrando upload no banco de dados");
     const { data: uploadRecord, error: uploadError } = await supabase
       .from("uploads")
       .insert({
@@ -103,35 +137,53 @@ app.post("/api/upload", upload.single("planilha"), async (req, res) => {
       .select();
 
     if (uploadError) {
-      console.error("Erro ao registrar upload no Supabase:", uploadError);
+      tracker.logError("DB_UPLOAD_ERROR", uploadError);
       throw new Error("Falha ao registrar upload.");
     }
-    uploadId = uploadRecord[0].id;
+    
+    dbUploadId = uploadRecord[0].id;
+    tracker.log("DB_UPLOAD_SUCCESS", `Upload registrado no banco com ID: ${dbUploadId}`);
 
-    // 2. Ler e mapear dados do Excel
-    const excelData = ExcelService.readExcelFile(filePath);
-    console.log("Total de linhas lidas da planilha:", excelData.data.length);
-
-    // Logar registros descartados por status
-    const statusValidos = ["G", "GO", "GU"];
-    const registrosDescartadosStatus = excelData.data.filter(row => {
-      const statusRaw = row["Status_OSv"] ? row["Status_OSv"].toString().toUpperCase().trim() : null;
-      return !statusValidos.includes(statusRaw);
+    // 2. Ler dados do Excel
+    tracker.log("EXCEL_READ_START", "Iniciando leitura do arquivo Excel");
+    const excelData = ExcelService.readExcelFile(filePath, tracker);
+    
+    tracker.log("EXCEL_READ_SUCCESS", `Arquivo Excel lido com sucesso`, {
+      totalRows: excelData.data.length,
+      columns: excelData.columns
     });
-    console.log("Total de registros descartados por status != G/GO/GU:", registrosDescartadosStatus.length);
-    if (registrosDescartadosStatus.length > 0) {
-      console.log("Exemplo de registros descartados por status:", JSON.stringify(registrosDescartadosStatus.slice(0, 5), null, 2));
-    }
 
-    const mappedData = ExcelService.mapExcelDataToDatabase(excelData);
-    console.log("Total de registros mapeados para o banco:", mappedData.length);
-    if (mappedData.length > 0) {
-      console.log("Exemplo de registros mapeados:", JSON.stringify(mappedData.slice(0, 5), null, 2));
-    }
+    // 3. Mapear dados do Excel para o banco
+    tracker.log("DATA_MAPPING_START", "Iniciando mapeamento dos dados");
+    const mappedData = ExcelService.mapExcelDataToDatabase(excelData, tracker);
+    
+    tracker.log("DATA_MAPPING_SUCCESS", `Dados mapeados com sucesso`, {
+      totalMapped: mappedData.length,
+      sampleData: mappedData.slice(0, 2) // Primeiros 2 registros como exemplo
+    });
 
-    // Validação de mes_servico foi removida para permitir a importação de dados com datas a serem corrigidas posteriormente.
-    const dataToInsert = mappedData.map(row => {
+    // 4. Classificar defeitos usando NLP
+    tracker.log("NLP_CLASSIFICATION_START", "Iniciando classificação de defeitos");
+    const dataToInsert = mappedData.map((row, index) => {
+      if (index < 5) { // Log detalhado apenas dos primeiros 5
+        tracker.log("NLP_PROCESSING", `Classificando defeito ${index + 1}`, {
+          numero_ordem: row.numero_ordem,
+          defeito_texto_bruto: row.defeito_texto_bruto
+        });
+      }
+      
       const classification = nlpService.classifyDefect(row.defeito_texto_bruto);
+      
+      if (index < 5) { // Log detalhado apenas dos primeiros 5
+        tracker.log("NLP_RESULT", `Classificação do defeito ${index + 1}`, {
+          numero_ordem: row.numero_ordem,
+          grupo: classification.grupo,
+          subgrupo: classification.subgrupo,
+          subsubgrupo: classification.subsubgrupo,
+          confianca: classification.confianca
+        });
+      }
+      
       return {
         ...row,
         defeito_grupo: classification.grupo,
@@ -141,50 +193,77 @@ app.post("/api/upload", upload.single("planilha"), async (req, res) => {
       };
     });
 
-    // LOG DETALHADO DOS DADOS A INSERIR
-    console.log("Dados a inserir:", JSON.stringify(dataToInsert, null, 2));
+    tracker.log("NLP_CLASSIFICATION_SUCCESS", `Classificação de defeitos concluída`, {
+      totalClassified: dataToInsert.length
+    });
 
-    // 4. Inserir dados processados no Supabase
-    // Usar upsert para evitar duplicatas baseadas em numero_ordem
+    // 5. Inserir dados processados no Supabase
+    tracker.log("DB_INSERT_START", "Iniciando inserção dos dados no banco");
     const { error: insertError } = await supabase
       .from("ordens_servico")
       .upsert(dataToInsert, { onConflict: "numero_ordem" });
 
     if (insertError) {
-      console.error("Erro ao inserir dados no Supabase:", JSON.stringify(insertError, null, 2));
+      tracker.logError("DB_INSERT_ERROR", insertError, { dataToInsert: dataToInsert.slice(0, 2) });
       throw new Error("Falha ao salvar dados processados.");
     }
 
-    // 5. Atualizar status do upload para "concluido"
+    tracker.log("DB_INSERT_SUCCESS", `Dados inseridos no banco com sucesso`, {
+      totalInserted: dataToInsert.length
+    });
+
+    // 6. Atualizar status do upload para "concluido"
     await supabase
       .from("uploads")
-      .update({ status: "concluido", total_registros: dataToInsert.length, registros_processados: dataToInsert.length, completed_at: new Date().toISOString() })
-      .eq("id", uploadId);
+      .update({ 
+        status: "concluido", 
+        total_registros: dataToInsert.length, 
+        registros_processados: dataToInsert.length, 
+        completed_at: new Date().toISOString() 
+      })
+      .eq("id", dbUploadId);
+
+    // Finalizar rastreamento
+    tracker.finishUpload("concluido", {
+      totalRecords: dataToInsert.length,
+      uploadId: dbUploadId,
+      filename: originalname
+    });
 
     res.json({
       message: "Arquivo processado e dados salvos com sucesso!",
       filename: originalname,
       totalRecords: dataToInsert.length,
-      uploadId: uploadId
+      uploadId: dbUploadId,
+      trackingId: uploadId
     });
 
   } catch (error) {
-    console.error("Erro no processamento da planilha:", error);
+    tracker.logError("UPLOAD_PROCESS_ERROR", error);
 
-    // Atualizar status do upload para "erro" se uploadId existir
-    if (uploadId) {
+    // Atualizar status do upload para "erro" se dbUploadId existir
+    if (dbUploadId) {
       await supabase
         .from("uploads")
-        .update({ status: "erro", mensagem_erro: error.message, completed_at: new Date().toISOString() })
-        .eq("id", uploadId);
+        .update({ 
+          status: "erro", 
+          mensagem_erro: error.message, 
+          completed_at: new Date().toISOString() 
+        })
+        .eq("id", dbUploadId);
     }
 
-    res.status(500).json({ error: error.message || "Erro interno do servidor ao processar planilha." });
+    tracker.finishUpload("erro", { error: error.message });
+
+    res.status(500).json({ 
+      error: error.message || "Erro interno do servidor ao processar planilha.",
+      trackingId: uploadId
+    });
   } finally {
     // Sempre deletar o arquivo temporário após o processamento
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log(`Arquivo temporário ${filePath} deletado.`);
+      tracker.log("FILE_CLEANUP", `Arquivo temporário deletado: ${filePath}`);
     }
   }
 });
@@ -210,5 +289,6 @@ app.listen(PORT, "0.0.0.0", () => {
 });
 
 module.exports = app;
+
 
 

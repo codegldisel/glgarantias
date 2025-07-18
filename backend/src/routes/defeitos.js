@@ -49,10 +49,10 @@ router.get("/data", async (req, res) => {
     const custoMedioDefeito = totalDefeitos > 0 ? custoTotalDefeitos / totalDefeitos : 0;
 
     // Calcular tempo médio de resolução
-    const ordensComTempo = ordensData.filter(ordem => ordem.data_os && ordem.data_fechamento);
+    const ordensComTempo = ordensData.filter(ordem => ordem.data_ordem && ordem.data_fechamento);
     const tempoMedioResolucao = ordensComTempo.length > 0 
       ? ordensComTempo.reduce((sum, ordem) => {
-          const inicio = new Date(ordem.data_os);
+          const inicio = new Date(ordem.data_ordem);
           const fim = new Date(ordem.data_fechamento);
           const dias = (fim - inicio) / (1000 * 60 * 60 * 24);
           return sum + dias;
@@ -76,8 +76,8 @@ router.get("/data", async (req, res) => {
       defeitosFrequencia[defeito].frequencia++;
       defeitosFrequencia[defeito].custoTotal += parseFloat(ordem.total_geral) || 0;
       
-      if (ordem.data_os && ordem.data_fechamento) {
-        const inicio = new Date(ordem.data_os);
+      if (ordem.data_ordem && ordem.data_fechamento) {
+        const inicio = new Date(ordem.data_ordem);
         const fim = new Date(ordem.data_fechamento);
         const dias = (fim - inicio) / (1000 * 60 * 60 * 24);
         defeitosFrequencia[defeito].ordensComTempo.push(dias);

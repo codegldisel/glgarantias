@@ -37,6 +37,7 @@ const OrdensServico = () => {
     status: 'all',
     fabricante: 'all',
     modelo: 'all',
+    modeloVeiculo: 'all',
     mecanico: 'all',
     defeito_grupo: 'all',
     defeito_subgrupo: 'all',
@@ -51,6 +52,7 @@ const OrdensServico = () => {
     mecanicos: [],
     fabricantes: [],
     modelos: [],
+    modelosVeiculo: [],
     defeito_grupos: [],
     defeito_subgrupos: [],
     defeito_subsubgrupos: [],
@@ -63,6 +65,7 @@ const OrdensServico = () => {
     status: true,
     fabricante_motor: true,
     modelo_motor: true,
+    modelo_veiculo_motor: true,
     defeito_grupo: true,
     defeito_subgrupo: false,
     defeito_subsubgrupo: false,
@@ -98,6 +101,7 @@ const OrdensServico = () => {
       if (filters.status !== 'all') params.append('status', filters.status);
       if (filters.fabricante !== 'all') params.append('fabricante', filters.fabricante);
       if (filters.modelo !== 'all') params.append('modelo', filters.modelo);
+      if (filters.modeloVeiculo !== 'all') params.append('modeloVeiculo', filters.modeloVeiculo);
       if (filters.mecanico !== 'all') params.append('mecanico', filters.mecanico);
       if (filters.defeito_grupo !== 'all') params.append('defeito_grupo', filters.defeito_grupo);
       if (filters.defeito_subgrupo !== 'all') params.append('defeito_subgrupo', filters.defeito_subgrupo);
@@ -115,14 +119,21 @@ const OrdensServico = () => {
       const json = await res.json();
       
       setOrders(json.data || []);
-      setPagination(json.pagination);
+      // Garantir que json.pagination existe e tem as propriedades esperadas
+      if (json.pagination && typeof json.pagination.page === 'number' && typeof json.pagination.limit === 'number' && typeof json.pagination.total === 'number' && typeof json.pagination.totalPages === 'number') {
+        setPagination(json.pagination);
+      } else {
+        // Definir um estado padrão seguro se a paginação for inválida
+        setPagination({ page: 1, limit: 50, total: 0, totalPages: 1 });
+      }
     } catch (e) {
       setError(e.message);
       setOrders([]);
+      setPagination({ page: 1, limit: 50, total: 0, totalPages: 1 }); // Resetar paginação em caso de erro
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, debouncedSearch, filters, sortConfig, apiUrl]);
+  }, [debouncedSearch, filters, sortConfig, apiUrl]); // Remover pagination.page e pagination.limit das dependências
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -152,6 +163,7 @@ const OrdensServico = () => {
       status: 'all',
       fabricante: 'all',
       modelo: 'all',
+      modeloVeiculo: 'all',
       mecanico: 'all',
       defeito_grupo: 'all',
       defeito_subgrupo: 'all',
@@ -350,6 +362,14 @@ const OrdensServico = () => {
               </SelectContent>
             </Select>
 
+            <Select value={filters.modeloVeiculo} onValueChange={(v) => handleFilterChange('modeloVeiculo', v)}>
+              <SelectTrigger><SelectValue placeholder="Modelo Veículo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Modelos de Veículo</SelectItem>
+                {filterOptions.modelosVeiculo.map(mv => <SelectItem key={mv} value={mv}>{mv}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
             <Select value={filters.mecanico} onValueChange={(v) => handleFilterChange('mecanico', v)}>
               <SelectTrigger><SelectValue placeholder="Mecânico" /></SelectTrigger>
               <SelectContent>
@@ -467,6 +487,9 @@ const OrdensServico = () => {
                     {visibleColumns.modelo_motor && (
                       <SortableHeader column="modelo_motor">Modelo Motor</SortableHeader>
                     )}
+                    {visibleColumns.modelo_veiculo_motor && (
+                      <SortableHeader column="modelo_veiculo_motor">Modelo Veículo</SortableHeader>
+                    )}
                     {visibleColumns.defeito_grupo && (
                       <SortableHeader column="defeito_grupo">Defeito (Grupo)</SortableHeader>
                     )}
@@ -520,6 +543,11 @@ const OrdensServico = () => {
                       {visibleColumns.modelo_motor && (
                         <TableCell className="max-w-[200px] truncate" title={order.modelo_motor}>
                           {order.modelo_motor}
+                        </TableCell>
+                      )}
+                      {visibleColumns.modelo_veiculo_motor && (
+                        <TableCell className="max-w-[200px] truncate" title={order.modelo_veiculo_motor}>
+                          {order.modelo_veiculo_motor}
                         </TableCell>
                       )}
                       {visibleColumns.defeito_grupo && (

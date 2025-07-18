@@ -15,7 +15,7 @@ router.get("/strategic-data", async (req, res) => {
     const { startDate, endDate, fabricante, modelo, defeito_grupo, status, oficina } = req.query;
 
     // Construir filtros dinâmicos
-    let query = supabase.from("ordens_servico").select("id, data_ordem, total_geral, data_os, data_fechamento, total_pecas, total_servico, fabricante_motor, modelo_motor, modelo_veiculo_motor, defeito_grupo, status, mecanico_responsavel");
+    let query = supabase.from("ordens_servico").select("id, data_ordem, total_geral, data_fechamento, total_pecas, total_servico, fabricante_motor, modelo_motor, modelo_veiculo_motor, defeito_grupo, status, mecanico_responsavel");
 
     // Aplicar filtros de status padrão
     query = query.in("status", ["Garantia", "Garantia de Oficina", "Garantia de Usinagem"]);
@@ -48,10 +48,10 @@ router.get("/strategic-data", async (req, res) => {
     const custoTotal = ordensData.reduce((sum, ordem) => sum + (parseFloat(ordem.total_geral) || 0), 0);
 
     // Calcular tempo médio de processamento
-    const ordensComDatasValidas = ordensData.filter(ordem => ordem.data_os && ordem.data_fechamento);
+    const ordensComDatasValidas = ordensData.filter(ordem => ordem.data_ordem && ordem.data_fechamento);
     const tempoMedioProcessamento = ordensComDatasValidas.length > 0 
       ? ordensComDatasValidas.reduce((sum, ordem) => {
-          const inicio = new Date(ordem.data_os);
+          const inicio = new Date(ordem.data_ordem);
           const fim = new Date(ordem.data_fechamento);
           const dias = (fim - inicio) / (1000 * 60 * 60 * 24);
           return sum + dias;

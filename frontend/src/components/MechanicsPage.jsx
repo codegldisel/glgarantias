@@ -27,6 +27,7 @@ const MechanicsPage = () => {
     endDate: '',
     fabricante: 'all',
     modelo: 'all',
+    modeloVeiculo: 'all',
     defeito_grupo: 'all',
     mecanico: 'all',
     status: 'all'
@@ -42,6 +43,7 @@ const MechanicsPage = () => {
         if (response.ok) {
           const filtrosData = await response.json();
           setFiltros(filtrosData);
+          console.log("Filtros carregados:", filtrosData);
         }
       } catch (error) {
         console.error('Erro ao carregar filtros:', error);
@@ -72,12 +74,15 @@ const MechanicsPage = () => {
         }
         
         const result = await response.json();
+        console.log("Dados brutos da API:", result);
         setData(result);
+        console.log("Estado 'data' após setData:", result);
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
+        console.error("Erro ao carregar dados:", error);
         setError(error.message);
       } finally {
         setLoading(false);
+        console.log("Estado 'loading' após loadData:", false);
       }
     };
 
@@ -234,6 +239,21 @@ const MechanicsPage = () => {
                     <SelectItem value="all">Todos os Modelos</SelectItem>
                     {filtros?.modelos?.map(modelo => (
                       <SelectItem key={modelo} value={modelo}>{modelo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Modelo Veículo</label>
+                <Select value={filters.modeloVeiculo} onValueChange={(v) => handleFilterChange('modeloVeiculo', v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Modelos de Veículo</SelectItem>
+                    {filtros?.modelosVeiculo?.map(modeloVeiculo => (
+                      <SelectItem key={modeloVeiculo} value={modeloVeiculo}>{modeloVeiculo}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -431,7 +451,7 @@ const MechanicsPage = () => {
                       />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
+                          backgroundColor: 'white', 
                           border: '1px solid #e5e7eb',
                           borderRadius: '8px',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
@@ -478,7 +498,7 @@ const MechanicsPage = () => {
                       />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#fff', 
+                          backgroundColor: 'white', 
                           border: '1px solid #e5e7eb',
                           borderRadius: '8px',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
@@ -525,7 +545,7 @@ const MechanicsPage = () => {
                     />
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: '#fff', 
+                        backgroundColor: 'white', 
                         border: '1px solid #e5e7eb',
                         borderRadius: '8px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
@@ -671,4 +691,5 @@ const MechanicsPage = () => {
 };
 
 export default MechanicsPage;
+
 

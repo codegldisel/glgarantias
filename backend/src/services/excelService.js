@@ -67,19 +67,29 @@ class ExcelService {
   /**
    * Lê um arquivo Excel e extrai dados da planilha "Tabela"
    * @param {string} filePath - Caminho para o arquivo Excel
+   * @param {Object} tracker - Objeto de rastreamento opcional
    * @returns {Array} Array com os dados extraídos
    */
-  static readExcelFile(filePath) {
+  static readExcelFile(filePath, tracker = null) {
     try {
-      console.log("Lendo arquivo Excel:", filePath);
+      if (tracker) tracker.log('EXCEL_FILE_ACCESS', `Acessando arquivo: ${filePath}`);
       
       // Ler o arquivo Excel
       const workbook = XLSX.readFile(filePath);
+      if (tracker) tracker.log('EXCEL_WORKBOOK_LOADED', 'Workbook carregado com sucesso', {
+        sheetNames: workbook.SheetNames
+      });
       
       // Verificar se a planilha "Tabela" existe
       if (!workbook.SheetNames.includes("Tabela")) {
-        throw new Error("Planilha \"Tabela\" não encontrada no arquivo Excel");
+        const error = new Error("Planilha \"Tabela\" não encontrada no arquivo Excel");
+        if (tracker) tracker.logError('EXCEL_SHEET_NOT_FOUND', error, {
+          availableSheets: workbook.SheetNames
+        });
+        throw error;
       }
+      
+      if (tracker) tracker.log('EXCEL_SHEET_FOUND', 'Planilha "Tabela" encontrada');
       
       // Obter a planilha "Tabela"
       const worksheet = workbook.Sheets["Tabela"];
@@ -88,15 +98,19 @@ class ExcelService {
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true, defval: null });
       
       if (jsonData.length === 0) {
-        throw new Error("A planilha \"Tabela\" está vazia");
+        const error = new Error("A planilha \"Tabela\" está vazia");
+        if (tracker) tracker.logError('EXCEL_EMPTY_SHEET', error);
+        throw error;
       }
       
       // A primeira linha contém os cabeçalhos
       const headers = jsonData[0];
       const rows = jsonData.slice(1);
       
-      console.log("Cabeçalhos encontrados:", headers);
-      console.log(`Total de linhas de dados: ${rows.length}`);
+      if (tracker) tracker.log('EXCEL_HEADERS_EXTRACTED', 'Cabeçalhos extraídos', {
+        headers: headers,
+        totalDataRows: rows.length
+      });
       
       // Mapear os dados para objetos
       const mappedData = rows.map(row => {
@@ -107,6 +121,11 @@ class ExcelService {
         return obj;
       });
       
+      if (tracker) tracker.log('EXCEL_DATA_MAPPED', 'Dados mapeados para objetos', {
+        totalMappedRows: mappedData.length,
+        sampleRow: mappedData.length > 0 ? mappedData[0] : null
+      });
+      
       return {
         headers,
         data: mappedData,
@@ -114,6 +133,7 @@ class ExcelService {
       };
       
     } catch (error) {
+      if (tracker) tracker.logError('EXCEL_READ_ERROR', error);
       console.error("Erro ao ler arquivo Excel:", error);
       throw error;
     }
@@ -122,9 +142,15 @@ class ExcelService {
   /**
    * Mapeia os dados do Excel para o formato do banco de dados e filtra por status G, GO, GU e ano >= 2019.
    * @param {Array} excelData - Dados extraídos do Excel
+   * @param {Object} tracker - Objeto de rastreamento opcional
    * @returns {Array} Dados mapeados e filtrados para o banco
    */
-  static mapExcelDataToDatabase(excelData) {
+  static mapExcelDataToDatabase(excelData, tracker = null) {
+    if (tracker) tracker.log('MAPPING_START', 'Iniciando mapeamento dos dados do Excel', {
+      totalRows: excelData.data.length,
+      headers: excelData.headers
+    });
+
     const mappedData = [];
     const warnings = [];
     let totalProcessed = 0;
@@ -132,28 +158,51 @@ class ExcelService {
     let filteredByYear = 0;
     let filteredByValidation = 0;
 
+    // Verificar se as colunas necessárias estão presentes
+    const requiredColumns = ['NOrdem_OSv', 'Data_OSv', 'Fabricante_Mot', 'Descricao_Mot', 'ModeloVei_Osv', 'ObsCorpo_OSv', 'RazaoSocial_Cli', 'TotalProd_OSv', 'Total_OSv', 'Status_OSv'];
+    const missingColumns = requiredColumns.filter(col => !excelData.headers.includes(col));
+    
+    if (missingColumns.length > 0) {
+      const error = new Error(`Colunas obrigatórias não encontradas: ${missingColumns.join(', ')}`);
+      if (tracker) tracker.logError('MAPPING_MISSING_COLUMNS', error, {
+        missingColumns,
+        availableColumns: excelData.headers
+      });
+      throw error;
+    }
+
+    if (tracker) tracker.log('MAPPING_COLUMNS_VALIDATED', 'Todas as colunas obrigatórias encontradas', {
+      requiredColumns
+    });
+
     for (const [index, row] of excelData.data.entries()) {
       const originalRowNumber = index + 2;
       totalProcessed++;
 
+      // Log detalhado para as primeiras 5 linhas
+      if (index < 5 && tracker) {
+        tracker.log('MAPPING_ROW_START', `Processando linha ${originalRowNumber}`, {
+          rowData: row
+        });
+      }
+
       const numeroOrdem = row["NOrdem_OSv"];
       if (!numeroOrdem) {
-        warnings.push({ row: originalRowNumber, reason: "Linha descartada: Número da Ordem (NOrdem_OSv) está ausente." });
+        const warning = { row: originalRowNumber, reason: "Linha descartada: Número da Ordem (NOrdem_OSv) está ausente." };
+        warnings.push(warning);
+        if (index < 5 && tracker) tracker.log('MAPPING_ROW_SKIPPED', `Linha ${originalRowNumber} descartada`, warning);
         continue;
       }
 
       // Verificar se o status é válido (G, GO, GU)
       const statusRaw = row["Status_OSv"] ? row["Status_OSv"].toString().toUpperCase().trim() : null;
-      const statusValidos = ["G", "GO", "GU"];
-      if (!statusValidos.includes(statusRaw)) {
-        filteredByStatus++;
-        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Status inválido ou não é de garantia ('${row["Status_OSv"]}' ).` });
-        continue;
-      }
-
       const status = this.mapStatus(statusRaw);
-      if (!status) {
-        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Erro no mapeamento do status ('${statusRaw}').` });
+
+      if (!["Garantia", "Garantia de Oficina", "Garantia de Usinagem"].includes(status)) {
+        filteredByStatus++;
+        const warning = { row: originalRowNumber, reason: `Linha descartada: Status_OSv inválido (${statusRaw}).` };
+        warnings.push(warning);
+        if (index < 5 && tracker) tracker.log("MAPPING_ROW_FILTERED_STATUS", `Linha ${originalRowNumber} filtrada por status`, warning);
         continue;
       }
 
@@ -167,38 +216,27 @@ class ExcelService {
         mesServico = dataOrdem.getMonth() + 1;
         diaServico = dataOrdem.getDate();
 
-        // NOVO: Verificar se o ano é >= 2019
+        // Verificar se o ano é >= 2019
         if (anoServico < 2019) {
           filteredByYear++;
-          warnings.push({ row: originalRowNumber, reason: `Linha descartada: Ano da Data_OSv (${anoServico}) anterior a 2019.` });
+          const warning = { row: originalRowNumber, reason: `Linha descartada: Ano da Data_OSv (${anoServico}) anterior a 2019.` };
+          warnings.push(warning);
+          if (index < 5 && tracker) tracker.log("MAPPING_ROW_FILTERED_YEAR", `Linha ${originalRowNumber} filtrada por ano`, warning);
           continue;
         }
       } else {
-        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Data_OSv inválida ou ausente ('${row["Data_OSv"]}' ).` });
+        const warning = { row: originalRowNumber, reason: `Linha descartada: Data_OSv inválida ou ausente ('${row["Data_OSv"]}').` };
+        warnings.push(warning);
+        if (index < 5 && tracker) tracker.log('MAPPING_ROW_DATE_ERROR', `Linha ${originalRowNumber} erro na data`, warning);
         continue;
       }
       
       let totalPecasRaw = this.parseNumber(row["TotalProd_OSv"]);
       let totalPecas = totalPecasRaw !== null ? totalPecasRaw / 2 : null; // Dividir por 2
       
-      let totalServico = this.parseNumber(row["TotalServ_OSv"]);
       let totalGeral = this.parseNumber(row["Total_OSv"]);
 
-      // Validação: (TotalProd_OSv/2) + TotalServ_OSv = Total_OSv
-      if (totalPecas !== null && totalServico !== null && totalGeral !== null) {
-        const calculatedTotal = totalPecas + totalServico;
-        if (Math.abs(calculatedTotal - totalGeral) > 0.01) { // Usar tolerância para float
-          filteredByValidation++;
-          warnings.push({ row: originalRowNumber, reason: `Linha descartada: Validação de totais falhou. Calculado: ${calculatedTotal}, Esperado: ${totalGeral}.` });
-          continue;
-        }
-      } else if (totalPecas === null || totalServico === null || totalGeral === null) {
-        // Se algum dos totais for nulo, descartar a linha
-        filteredByValidation++;
-        warnings.push({ row: originalRowNumber, reason: `Linha descartada: Um ou mais valores de totais (TotalProd_OSv, TotalServ_OSv, Total_OSv) estão ausentes ou inválidos.` });
-        continue;
-      }
-
+      
       mappedData.push({
         numero_ordem: numeroOrdem,
         data_ordem: dataOrdem,
@@ -212,7 +250,6 @@ class ExcelService {
         mes_servico: mesServico,
         ano_servico: anoServico,
         total_pecas: totalPecas,
-        total_servico: totalServico,
         total_geral: totalGeral,
       });
     }
@@ -225,16 +262,6 @@ class ExcelService {
     console.log(`Filtradas por validação de totais: ${filteredByValidation}`);
     console.log(`Registros válidos após filtragem: ${mappedData.length}`);
     console.log("===============================================================");
-
-    if (warnings.length > 0) {
-      console.warn("================== AVISOS DURANTE O PROCESSAMENTO ==================");
-      console.warn(`Total de ${warnings.length} avisos gerados.`);
-      warnings.slice(0, 15).forEach(w => console.warn(`- Linha ${w.row}: ${w.reason}`));
-      if (warnings.length > 15) {
-        console.warn(`- ... e mais ${warnings.length - 15} outros avisos.`);
-      }
-      console.warn("====================================================================");
-    }
 
     return mappedData;
   }
@@ -257,8 +284,7 @@ class ExcelService {
       case "GU":
         return "Garantia de Usinagem";
       default:
-        // Se não for um dos status de garantia válidos, retorna null.
-        return null;
+        return statusUpper; // Retorna o status original se não for um dos válidos
     }
   }
   

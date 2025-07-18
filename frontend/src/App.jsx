@@ -25,6 +25,7 @@ import DefectsPage from './components/DefectsPage'
 import MechanicsPage from './components/MechanicsPage'
 import Reports from './components/Reports'
 import SettingsComponent from './components/Settings'
+import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
 function App() {
@@ -126,7 +127,9 @@ function App() {
 
         {/* Content Area */}
         <main className="flex-1 p-6 overflow-hidden">
-          {renderContent()}
+          <ErrorBoundary>
+            {renderContent()}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

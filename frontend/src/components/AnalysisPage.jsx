@@ -24,6 +24,7 @@ const AnalysisPage = () => {
     endDate: '',
     fabricante: 'all',
     modelo: 'all',
+    modeloVeiculo: 'all',
     defeito_grupo: 'all',
     status: 'all',
     oficina: 'all'
@@ -223,6 +224,21 @@ const AnalysisPage = () => {
                     <SelectItem value="all">Todos os Modelos</SelectItem>
                     {filtros?.modelos?.map(modelo => (
                       <SelectItem key={modelo} value={modelo}>{modelo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Modelo Veículo</label>
+                <Select value={filters.modeloVeiculo} onValueChange={(v) => handleFilterChange('modeloVeiculo', v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Modelos de Veículo</SelectItem>
+                    {filtros?.modelosVeiculo?.map(modeloVeiculo => (
+                      <SelectItem key={modeloVeiculo} value={modeloVeiculo}>{modeloVeiculo}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

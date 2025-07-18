@@ -46,10 +46,10 @@ router.get("/data", async (req, res) => {
     const custoMedioEquipe = totalOrdens > 0 ? custoTotalEquipe / totalOrdens : 0;
 
     // Calcular tempo médio de resolução da equipe
-    const ordensComTempo = ordensData.filter(ordem => ordem.data_os && ordem.data_fechamento);
+    const ordensComTempo = ordensData.filter(ordem => ordem.data_ordem && ordem.data_fechamento);
     const tempoMedioEquipe = ordensComTempo.length > 0 
       ? ordensComTempo.reduce((sum, ordem) => {
-          const inicio = new Date(ordem.data_os);
+          const inicio = new Date(ordem.data_ordem);
           const fim = new Date(ordem.data_fechamento);
           const dias = (fim - inicio) / (1000 * 60 * 60 * 24);
           return sum + dias;
@@ -88,8 +88,8 @@ router.get("/data", async (req, res) => {
       const status = ordem.status || "Indefinido";
       analise.statusDistribuicao[status] = (analise.statusDistribuicao[status] || 0) + 1;
       
-      if (ordem.data_os && ordem.data_fechamento) {
-        const inicio = new Date(ordem.data_os);
+      if (ordem.data_ordem && ordem.data_fechamento) {
+        const inicio = new Date(ordem.data_ordem);
         const fim = new Date(ordem.data_fechamento);
         const dias = (fim - inicio) / (1000 * 60 * 60 * 24);
         analise.ordensComTempo.push(dias);
@@ -381,10 +381,10 @@ router.get("/detalhes/:mecanico", async (req, res) => {
     });
 
     // Calcular tempo médio de resolução
-    const ordensComTempo = ordensData.filter(ordem => ordem.data_os && ordem.data_fechamento);
+    const ordensComTempo = ordensData.filter(ordem => ordem.data_ordem && ordem.data_fechamento);
     const tempoMedioResolucao = ordensComTempo.length > 0 
       ? ordensComTempo.reduce((sum, ordem) => {
-          const inicio = new Date(ordem.data_os);
+          const inicio = new Date(ordem.data_ordem);
           const fim = new Date(ordem.data_fechamento);
           const dias = (fim - inicio) / (1000 * 60 * 60 * 24);
           return sum + dias;
